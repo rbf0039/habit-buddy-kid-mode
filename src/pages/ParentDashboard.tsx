@@ -1,130 +1,191 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Users, Settings, Baby, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Settings, Target, Award, TrendingUp, Users, LogOut } from "lucide-react";
+import { AddChildDialog } from "@/components/AddChildDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface Child {
+  id: string;
+  name: string;
+  age: number;
+  coin_balance: number;
+  current_streak: number;
+}
 
 const ParentDashboard = () => {
   const navigate = useNavigate();
+  const { user, signOut, loading } = useAuth();
+  const { toast } = useToast();
+  const [children, setChildren] = useState<Child[]>([]);
+  const [isLoadingChildren, setIsLoadingChildren] = useState(true);
 
-  // Mock data - will be replaced with real data from Lovable Cloud
-  const children = [
-    { id: 1, name: "Emma", age: 8, habits: 5, coins: 125 },
-    { id: 2, name: "Noah", age: 6, habits: 3, coins: 87 },
-  ];
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  const fetchChildren = async () => {
+    if (!user) return;
+    
+    setIsLoadingChildren(true);
+    const { data, error } = await supabase
+      .from("children")
+      .select("*")
+      .eq("parent_id", user.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load children.",
+        variant: "destructive",
+      });
+    } else {
+      setChildren(data || []);
+    }
+    setIsLoadingChildren(false);
+  };
+
+  useEffect(() => {
+    fetchChildren();
+  }, [user]);
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (loading || isLoadingChildren) {
+    return (
+      <div className="min-h-screen bg-gradient-parent flex items-center justify-center">
+        <div className="text-foreground text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-child">
-      {/* Header */}
-      <header className="bg-card shadow-soft sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">Parent Dashboard</h1>
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </div>
-      </header>
-
-      <main className="max-w-md mx-auto px-6 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8 animate-fade-in-up">
-          <h2 className="text-2xl font-bold text-foreground mb-2">
-            Welcome back, Parent! 👋
-          </h2>
-          <p className="text-muted-foreground">
-            Manage your children's habits and track their progress
-          </p>
+    <div className="min-h-screen bg-gradient-parent px-6 py-8">
+      <div className="max-w-md mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8 animate-fade-in-up">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-1">Parent Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Manage your children's habits</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/settings")}
+              className="rounded-full"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              className="rounded-full"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-          <Button variant="default" className="h-24 flex-col gap-2">
-            <Plus className="w-6 h-6" />
-            Add Child
-          </Button>
-          <Button variant="secondary" className="h-24 flex-col gap-2">
-            <Settings className="w-6 h-6" />
-            Settings
-          </Button>
+        <div className="grid grid-cols-3 gap-3 mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <Card className="shadow-card border-primary/20">
+            <CardContent className="p-4 text-center">
+              <Target className="w-6 h-6 mx-auto mb-2 text-primary" />
+              <p className="text-xs font-medium text-foreground">Habits</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card border-secondary/20">
+            <CardContent className="p-4 text-center">
+              <Award className="w-6 h-6 mx-auto mb-2 text-secondary" />
+              <p className="text-xs font-medium text-foreground">Rewards</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card border-success/20">
+            <CardContent className="p-4 text-center">
+              <TrendingUp className="w-6 h-6 mx-auto mb-2 text-success" />
+              <p className="text-xs font-medium text-foreground">Progress</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Children List */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Your Children
-            </h3>
-          </div>
+        <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Your Children
+          </h2>
 
-          {children.map((child, index) => (
-            <Card
-              key={child.id}
-              className="shadow-soft hover:shadow-card transition-all duration-300 hover:scale-105 cursor-pointer animate-fade-in-up"
-              style={{ animationDelay: `${0.2 + index * 0.1}s` }}
-              onClick={() => navigate(`/child/${child.id}`)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center shadow-soft">
-                      <Baby className="w-6 h-6 text-primary-foreground" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{child.name}</CardTitle>
-                      <CardDescription>{child.age} years old</CardDescription>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-muted-foreground">Habits</p>
-                      <p className="font-bold text-lg text-foreground">{child.habits}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Coins</p>
-                      <p className="font-bold text-lg text-secondary">{child.coins}</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Manage
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {/* Empty State */}
-          {children.length === 0 && (
-            <Card className="shadow-soft animate-fade-in-up">
-              <CardContent className="py-12 text-center">
-                <Baby className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground mb-4">
-                  No children added yet
+          {children.length === 0 ? (
+            <Card className="shadow-card mb-4">
+              <CardContent className="p-8 text-center">
+                <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground mb-4">No children added yet</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Get started by adding your first child to begin tracking their habits!
                 </p>
-                <Button variant="default">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Your First Child
-                </Button>
               </CardContent>
             </Card>
+          ) : (
+            <div className="space-y-4">
+              {children.map((child, index) => (
+                <Card
+                  key={child.id}
+                  className="shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in-up"
+                  style={{ animationDelay: `${0.3 + index * 0.1}s` }}
+                  onClick={() => navigate(`/child/${child.id}`)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground">{child.name}</h3>
+                        <p className="text-sm text-muted-foreground">Age {child.age}</p>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-lg shadow-glow">
+                        {child.name.charAt(0).toUpperCase()}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-warning/10 rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-warning">{child.coin_balance}</p>
+                        <p className="text-xs text-muted-foreground">Habit Coins</p>
+                      </div>
+                      <div className="bg-success/10 rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-success">{child.current_streak}</p>
+                        <p className="text-xs text-muted-foreground">Day Streak</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
 
-        {/* Tips Section */}
-        <Card className="mt-8 bg-gradient-success shadow-glow animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-          <CardHeader>
-            <CardTitle className="text-accent-foreground">💡 Quick Tip</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-accent-foreground/90 text-sm">
-              Start with 2-3 simple habits per child. Consistency is more important than quantity!
+        {/* Add Child Button */}
+        <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+          <AddChildDialog onChildAdded={fetchChildren} />
+        </div>
+
+        {/* Quick Tip */}
+        <Card className="mt-6 shadow-card border-primary/20 animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold text-primary mb-1">💡 Quick Tip</p>
+            <p className="text-sm text-foreground">
+              Consistency is key! Help your children build lasting habits by celebrating small wins daily.
             </p>
           </CardContent>
         </Card>
-      </main>
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,40 +7,85 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp, signIn, user } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // TODO: Implement Lovable Cloud authentication
-    setTimeout(() => {
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error } = await signUp(email, password, name);
+
+    if (error) {
+      toast({
+        title: "Sign up failed",
+        description: error.message || "An error occurred during sign up.",
+        variant: "destructive",
+      });
+    } else {
       toast({
         title: "Welcome to HabitBuddy!",
         description: "Your account has been created successfully.",
       });
-      setIsLoading(false);
       navigate("/dashboard");
-    }, 1500);
+    }
+    
+    setIsLoading(false);
   };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // TODO: Implement Lovable Cloud authentication
-    setTimeout(() => {
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    const { error } = await signIn(email, password);
+
+    if (error) {
+      toast({
+        title: "Sign in failed",
+        description: error.message || "Invalid email or password.",
+        variant: "destructive",
+      });
+    } else {
       toast({
         title: "Welcome back!",
         description: "You've been signed in successfully.",
       });
-      setIsLoading(false);
       navigate("/dashboard");
-    }, 1500);
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -74,6 +119,7 @@ const Auth = () => {
                     <Label htmlFor="email-signin">Email</Label>
                     <Input
                       id="email-signin"
+                      name="email"
                       type="email"
                       placeholder="parent@example.com"
                       required
@@ -84,6 +130,7 @@ const Auth = () => {
                     <Label htmlFor="password-signin">Password</Label>
                     <Input
                       id="password-signin"
+                      name="password"
                       type="password"
                       placeholder="••••••••"
                       required
@@ -108,6 +155,7 @@ const Auth = () => {
                     <Label htmlFor="name-signup">Parent Name</Label>
                     <Input
                       id="name-signup"
+                      name="name"
                       type="text"
                       placeholder="Your name"
                       required
@@ -118,6 +166,7 @@ const Auth = () => {
                     <Label htmlFor="email-signup">Email</Label>
                     <Input
                       id="email-signup"
+                      name="email"
                       type="email"
                       placeholder="parent@example.com"
                       required
@@ -128,9 +177,11 @@ const Auth = () => {
                     <Label htmlFor="password-signup">Password</Label>
                     <Input
                       id="password-signup"
+                      name="password"
                       type="password"
                       placeholder="••••••••"
                       required
+                      minLength={6}
                       className="h-12"
                     />
                   </div>
@@ -138,9 +189,11 @@ const Auth = () => {
                     <Label htmlFor="password-confirm">Confirm Password</Label>
                     <Input
                       id="password-confirm"
+                      name="confirmPassword"
                       type="password"
                       placeholder="••••••••"
                       required
+                      minLength={6}
                       className="h-12"
                     />
                   </div>

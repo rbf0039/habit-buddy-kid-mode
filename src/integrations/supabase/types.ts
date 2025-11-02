@@ -14,7 +14,308 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      badges: {
+        Row: {
+          child_id: string
+          description: string | null
+          earned_at: string
+          icon_url: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          child_id: string
+          description?: string | null
+          earned_at?: string
+          icon_url?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          child_id?: string
+          description?: string | null
+          earned_at?: string
+          icon_url?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badges_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      children: {
+        Row: {
+          age: number
+          avatar_url: string | null
+          coin_balance: number
+          created_at: string
+          current_streak: number
+          id: string
+          name: string
+          parent_id: string
+        }
+        Insert: {
+          age: number
+          avatar_url?: string | null
+          coin_balance?: number
+          created_at?: string
+          current_streak?: number
+          id?: string
+          name: string
+          parent_id: string
+        }
+        Update: {
+          age?: number
+          avatar_url?: string | null
+          coin_balance?: number
+          created_at?: string
+          current_streak?: number
+          id?: string
+          name?: string
+          parent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "children_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habit_progress: {
+        Row: {
+          child_id: string
+          completed_at: string
+          date: string
+          habit_id: string
+          id: string
+          step_id: string | null
+        }
+        Insert: {
+          child_id: string
+          completed_at?: string
+          date?: string
+          habit_id: string
+          id?: string
+          step_id?: string | null
+        }
+        Update: {
+          child_id?: string
+          completed_at?: string
+          date?: string
+          habit_id?: string
+          id?: string
+          step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_progress_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "habit_progress_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "habit_progress_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "habit_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habit_steps: {
+        Row: {
+          created_at: string
+          habit_id: string
+          id: string
+          name: string
+          order_index: number
+        }
+        Insert: {
+          created_at?: string
+          habit_id: string
+          id?: string
+          name: string
+          order_index: number
+        }
+        Update: {
+          created_at?: string
+          habit_id?: string
+          id?: string
+          name?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_steps_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habits: {
+        Row: {
+          child_id: string
+          coins_per_completion: number
+          created_at: string
+          description: string | null
+          frequency: string
+          icon: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          child_id: string
+          coins_per_completion?: number
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          icon: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          child_id?: string
+          coins_per_completion?: number
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habits_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          pin: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          pin?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          pin?: string | null
+        }
+        Relationships: []
+      }
+      reward_redemptions: {
+        Row: {
+          child_id: string
+          id: string
+          redeemed_at: string
+          reward_id: string
+          status: string
+        }
+        Insert: {
+          child_id: string
+          id?: string
+          redeemed_at?: string
+          reward_id: string
+          status?: string
+        }
+        Update: {
+          child_id?: string
+          id?: string
+          redeemed_at?: string
+          reward_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_redemptions_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "rewards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewards: {
+        Row: {
+          coin_cost: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          parent_id: string
+        }
+        Insert: {
+          coin_cost: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          parent_id: string
+        }
+        Update: {
+          coin_cost?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          parent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
