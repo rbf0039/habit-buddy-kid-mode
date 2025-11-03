@@ -170,7 +170,7 @@ const ParentDashboard = () => {
                   key={child.id}
                   className="shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in-up"
                   style={{ animationDelay: `${0.3 + index * 0.1}s` }}
-                  onClick={() => navigate(`/child/${child.id}`)}
+                  onClick={() => navigate(`/child/${child.id}/manage`)}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-4">
