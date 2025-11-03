@@ -135,7 +135,15 @@ const ChildMode = () => {
   const handleStepToggle = async (habitId: string, stepId: string, currentlyCompleted: boolean) => {
     if (!child) return;
 
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const today = new Date().toISOString().split("T")[0];
+
     if (currentlyCompleted) {
+      // Check if habit was fully completed before uncompleting this step
+      const wasFullyCompleted = habit.completedSteps === habit.steps.length;
+
       // Uncomplete the step
       const { error } = await supabase
         .from("habit_progress")
@@ -143,7 +151,7 @@ const ChildMode = () => {
         .eq("habit_id", habitId)
         .eq("step_id", stepId)
         .eq("child_id", child.id)
-        .eq("date", new Date().toISOString().split("T")[0]);
+        .eq("date", today);
 
       if (error) {
         toast({
@@ -153,13 +161,29 @@ const ChildMode = () => {
         });
         return;
       }
+
+      // If habit was fully completed, deduct coins
+      if (wasFullyCompleted) {
+        const { error: coinError } = await supabase
+          .from("children")
+          .update({ coin_balance: Math.max(0, child.coin_balance - habit.coins_per_completion) })
+          .eq("id", child.id);
+
+        if (coinError) {
+          toast({
+            title: "Error",
+            description: "Failed to update coins.",
+            variant: "destructive",
+          });
+        }
+      }
     } else {
       // Complete the step
       const { error } = await supabase.from("habit_progress").insert({
         habit_id: habitId,
         step_id: stepId,
         child_id: child.id,
-        date: new Date().toISOString().split("T")[0],
+        date: today,
       });
 
       if (error) {
@@ -169,6 +193,31 @@ const ChildMode = () => {
           variant: "destructive",
         });
         return;
+      }
+
+      // Check if this completes the habit
+      const newCompletedSteps = habit.completedSteps + 1;
+      const isNowFullyCompleted = newCompletedSteps === habit.steps.length;
+
+      if (isNowFullyCompleted) {
+        // Award coins
+        const { error: coinError } = await supabase
+          .from("children")
+          .update({ coin_balance: child.coin_balance + habit.coins_per_completion })
+          .eq("id", child.id);
+
+        if (coinError) {
+          toast({
+            title: "Error",
+            description: "Failed to award coins.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Great job! 🎉",
+            description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
+          });
+        }
       }
     }
 
