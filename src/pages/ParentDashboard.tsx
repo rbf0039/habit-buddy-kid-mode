@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Settings, Target, Award, TrendingUp, Users, LogOut } from "lucide-react";
+import { Settings, Target, Award, TrendingUp, Users, LogOut, Smartphone } from "lucide-react";
 import { AddChildDialog } from "@/components/AddChildDialog";
+import { PinDialog } from "@/components/PinDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,14 +19,25 @@ interface Child {
 
 const ParentDashboard = () => {
   const navigate = useNavigate();
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut, loading, setChildMode, hasPin, createPin } = useAuth();
   const { toast } = useToast();
   const [children, setChildren] = useState<Child[]>([]);
   const [isLoadingChildren, setIsLoadingChildren] = useState(true);
+  const [showPinDialog, setShowPinDialog] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  // Redirect if in child mode
+  useEffect(() => {
+    if (!loading && user) {
+      const childMode = localStorage.getItem("childMode");
+      if (childMode === "true") {
+        navigate("/child-device");
+      }
     }
   }, [user, loading, navigate]);
 
@@ -57,6 +69,22 @@ const ParentDashboard = () => {
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleSwitchToChildMode = () => {
+    if (!hasPin) {
+      // If no PIN is set, prompt to create one first
+      setShowPinDialog(true);
+    } else {
+      // If PIN exists, go directly to child device mode
+      setChildMode(true);
+      navigate("/child-device");
+    }
+  };
+
+  const handlePinCreated = () => {
+    setChildMode(true);
+    navigate("/child-device");
   };
 
   if (loading || isLoadingChildren) {
@@ -172,8 +200,18 @@ const ParentDashboard = () => {
         </div>
 
         {/* Add Child Button */}
-        <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+        <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
           <AddChildDialog onChildAdded={fetchChildren} />
+          
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={handleSwitchToChildMode}
+          >
+            <Smartphone className="w-4 h-4 mr-2" />
+            Switch to Child Device Mode
+          </Button>
         </div>
 
         {/* Quick Tip */}
@@ -186,6 +224,14 @@ const ParentDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <PinDialog
+        open={showPinDialog}
+        onOpenChange={setShowPinDialog}
+        mode="create"
+        onSuccess={handlePinCreated}
+        onCreate={createPin}
+      />
     </div>
   );
 };

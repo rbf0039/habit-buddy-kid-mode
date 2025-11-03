@@ -1,12 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { Star, Trophy, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 import heroImage from "@/assets/hero-illustration.jpg";
 import coinImage from "@/assets/habit-coin.png";
 import badgeImage from "@/assets/achievement-badge.png";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, loading, isChildMode } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      // Redirect authenticated users to appropriate dashboard
+      if (isChildMode) {
+        navigate("/child-device");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, loading, isChildMode, navigate]);
   
   return (
     <div className="min-h-screen bg-gradient-child">
