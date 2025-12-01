@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Target, Coins, Flame, Plus } from "lucide-react";
+import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CreateHabitDialog } from "@/components/CreateHabitDialog";
+import { CreateRewardDialog } from "@/components/CreateRewardDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Child {
   id: string;
@@ -30,6 +32,23 @@ interface HabitWithSteps extends Habit {
   steps: { id: string; name: string; order_index: number }[];
 }
 
+interface Reward {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  coin_cost: number;
+  is_active: boolean;
+}
+
+interface RewardRedemption {
+  id: string;
+  reward_id: string;
+  redeemed_at: string;
+  status: string;
+  reward: Reward;
+}
+
 const ChildDetail = () => {
   const { childId } = useParams();
   const navigate = useNavigate();
@@ -37,6 +56,8 @@ const ChildDetail = () => {
   const { toast } = useToast();
   const [child, setChild] = useState<Child | null>(null);
   const [habits, setHabits] = useState<HabitWithSteps[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -104,6 +125,45 @@ const ChildDetail = () => {
     );
 
     setHabits(habitsWithSteps);
+
+    // Fetch rewards for this child
+    const { data: rewardsData, error: rewardsError } = await supabase
+      .from("rewards")
+      .select("*")
+      .eq("child_id", childId)
+      .eq("parent_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (rewardsError) {
+      toast({
+        title: "Error",
+        description: "Failed to load rewards.",
+        variant: "destructive",
+      });
+    } else {
+      setRewards(rewardsData || []);
+    }
+
+    // Fetch reward redemptions
+    const { data: redemptionsData, error: redemptionsError } = await supabase
+      .from("reward_redemptions")
+      .select(`
+        *,
+        reward:rewards(*)
+      `)
+      .eq("child_id", childId)
+      .order("redeemed_at", { ascending: false });
+
+    if (redemptionsError) {
+      toast({
+        title: "Error",
+        description: "Failed to load redemptions.",
+        variant: "destructive",
+      });
+    } else {
+      setRedemptions(redemptionsData || []);
+    }
+
     setIsLoading(false);
   };
 
@@ -165,75 +225,169 @@ const ChildDetail = () => {
           </Card>
         </div>
 
-        {/* Habits Section */}
-        <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Habits
-            </h2>
-          </div>
+        {/* Tabs for Habits, Rewards, and Redemptions */}
+        <Tabs defaultValue="habits" className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="habits">Habits</TabsTrigger>
+            <TabsTrigger value="rewards">Rewards</TabsTrigger>
+            <TabsTrigger value="redemptions">Redemptions</TabsTrigger>
+          </TabsList>
 
-          {habits.length === 0 ? (
-            <Card className="shadow-card">
-              <CardContent className="p-8 text-center">
-                <Target className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground mb-4">No habits yet</p>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Create your first habit to help {child.name} build great routines!
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4 mb-4">
-              {habits.map((habit) => (
-                <Card key={habit.id} className="shadow-card">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2">
-                      <span className="text-2xl">{habit.icon}</span>
-                      <span className="text-lg">{habit.name}</span>
-                      {!habit.is_active && (
-                        <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
+          <TabsContent value="habits" className="mt-4">
+            {habits.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-8 text-center">
+                  <Target className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground mb-4">No habits yet</p>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Create your first habit to help {child.name} build great routines!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4 mb-4">
+                {habits.map((habit) => (
+                  <Card key={habit.id} className="shadow-card">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <span className="text-2xl">{habit.icon}</span>
+                        <span className="text-lg">{habit.name}</span>
+                        {!habit.is_active && (
+                          <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {habit.description && (
+                        <p className="text-sm text-muted-foreground mb-3">{habit.description}</p>
                       )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {habit.description && (
-                      <p className="text-sm text-muted-foreground mb-3">{habit.description}</p>
-                    )}
-                    
-                    <div className="flex items-center gap-4 text-sm mb-3">
-                      <span className="flex items-center gap-1">
+                      
+                      <div className="flex items-center gap-4 text-sm mb-3">
+                        <span className="flex items-center gap-1">
+                          <Coins className="w-4 h-4 text-warning" />
+                          <span className="font-semibold text-warning">
+                            +{habit.coins_per_completion} coins
+                          </span>
+                        </span>
+                        <span className="text-muted-foreground capitalize">
+                          {habit.frequency}
+                        </span>
+                      </div>
+
+                      {habit.steps.length > 0 && (
+                        <div>
+                          <p className="text-sm font-semibold mb-2">Steps:</p>
+                          <ol className="space-y-1">
+                            {habit.steps.map((step, index) => (
+                              <li key={step.id} className="text-sm text-muted-foreground">
+                                {index + 1}. {step.name}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+            <CreateHabitDialog childId={childId!} onHabitCreated={fetchData} />
+          </TabsContent>
+
+          <TabsContent value="rewards" className="mt-4">
+            {rewards.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-8 text-center">
+                  <Gift className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground mb-4">No rewards yet</p>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Create rewards that {child.name} can redeem with Habit Coins!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4 mb-4">
+                {rewards.map((reward) => (
+                  <Card key={reward.id} className="shadow-card">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <span className="text-2xl">{reward.icon}</span>
+                        <span className="text-lg">{reward.name}</span>
+                        {!reward.is_active && (
+                          <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {reward.description && (
+                        <p className="text-sm text-muted-foreground mb-3">{reward.description}</p>
+                      )}
+                      
+                      <div className="flex items-center gap-1 text-sm">
                         <Coins className="w-4 h-4 text-warning" />
                         <span className="font-semibold text-warning">
-                          +{habit.coins_per_completion} coins
+                          {reward.coin_cost} coins
                         </span>
-                      </span>
-                      <span className="text-muted-foreground capitalize">
-                        {habit.frequency}
-                      </span>
-                    </div>
-
-                    {habit.steps.length > 0 && (
-                      <div>
-                        <p className="text-sm font-semibold mb-2">Steps:</p>
-                        <ol className="space-y-1">
-                          {habit.steps.map((step, index) => (
-                            <li key={step.id} className="text-sm text-muted-foreground">
-                              {index + 1}. {step.name}
-                            </li>
-                          ))}
-                        </ol>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+            <CreateRewardDialog childId={childId!} onRewardCreated={fetchData} />
+          </TabsContent>
 
-          <CreateHabitDialog childId={childId!} onHabitCreated={fetchData} />
-        </div>
+          <TabsContent value="redemptions" className="mt-4">
+            {redemptions.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-8 text-center">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground mb-4">No redemptions yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    {child.name} hasn't redeemed any rewards yet.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {redemptions.map((redemption) => (
+                  <Card key={redemption.id} className="shadow-card">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl">{redemption.reward.icon}</span>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-foreground">
+                            {redemption.reward.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {redemption.reward.description}
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Coins className="w-3 h-3" />
+                              {redemption.reward.coin_cost} coins
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(redemption.redeemed_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          redemption.status === 'completed' 
+                            ? 'bg-success/20 text-success' 
+                            : 'bg-warning/20 text-warning'
+                        }`}>
+                          {redemption.status}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
