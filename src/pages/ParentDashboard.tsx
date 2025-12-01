@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Settings, Target, Award, TrendingUp, Users, LogOut, Smartphone } from "lucide-react";
+import { Settings, Users, LogOut, Smartphone } from "lucide-react";
 import { AddChildDialog } from "@/components/AddChildDialog";
 import { PinDialog } from "@/components/PinDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -124,27 +124,6 @@ const ParentDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-3 mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-          <Card className="shadow-card border-primary/20">
-            <CardContent className="p-4 text-center">
-              <Target className="w-6 h-6 mx-auto mb-2 text-primary" />
-              <p className="text-xs font-medium text-foreground">Habits</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card border-secondary/20">
-            <CardContent className="p-4 text-center">
-              <Award className="w-6 h-6 mx-auto mb-2 text-secondary" />
-              <p className="text-xs font-medium text-foreground">Rewards</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card border-success/20">
-            <CardContent className="p-4 text-center">
-              <TrendingUp className="w-6 h-6 mx-auto mb-2 text-success" />
-              <p className="text-xs font-medium text-foreground">Progress</p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Children List */}
         <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
