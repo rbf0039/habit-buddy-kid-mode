@@ -280,33 +280,46 @@ export type Database = {
       }
       rewards: {
         Row: {
+          child_id: string | null
           coin_cost: number
           created_at: string
           description: string | null
+          icon: string
           id: string
           is_active: boolean
           name: string
           parent_id: string
         }
         Insert: {
+          child_id?: string | null
           coin_cost: number
           created_at?: string
           description?: string | null
+          icon?: string
           id?: string
           is_active?: boolean
           name: string
           parent_id: string
         }
         Update: {
+          child_id?: string | null
           coin_cost?: number
           created_at?: string
           description?: string | null
+          icon?: string
           id?: string
           is_active?: boolean
           name?: string
           parent_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rewards_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rewards_parent_id_fkey"
             columns: ["parent_id"]
