@@ -185,7 +185,7 @@ const ChildDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-parent px-6 py-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-md mx-auto">
         {/* Header */}
         <div className="mb-6 animate-fade-in-up">
           <Button
