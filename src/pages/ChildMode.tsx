@@ -28,6 +28,7 @@ interface Habit {
 interface HabitWithSteps extends Habit {
   steps: HabitStep[];
   completedSteps: number;
+  isCompletedToday?: boolean;
 }
 
 interface Reward {
@@ -127,10 +128,27 @@ const ChildMode = () => {
           completed: completedStepIds.has(step.id),
         }));
 
+        // Check if habit without steps is completed today
+        const hasSteps = steps.length > 0;
+        let isCompletedToday = false;
+        
+        if (!hasSteps) {
+          const { data: progressToday } = await supabase
+            .from("habit_progress")
+            .select("id")
+            .eq("habit_id", habit.id)
+            .eq("child_id", childId)
+            .eq("date", new Date().toISOString().split("T")[0])
+            .eq("step_id", null);
+          
+          isCompletedToday = !!progressToday && progressToday.length > 0;
+        }
+
         return {
           ...habit,
           steps,
           completedSteps: steps.filter((s) => s.completed).length,
+          isCompletedToday,
         };
       })
     );
@@ -157,6 +175,69 @@ const ChildMode = () => {
   useEffect(() => {
     fetchChildData();
   }, [childId, user]);
+
+  const handleCompleteHabitWithoutSteps = async (habitId: string) => {
+    if (!child) return;
+
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Check if already completed today
+    const { data: existingProgress } = await supabase
+      .from("habit_progress")
+      .select("id")
+      .eq("habit_id", habitId)
+      .eq("child_id", child.id)
+      .eq("date", today)
+      .eq("step_id", null);
+
+    if (existingProgress && existingProgress.length > 0) {
+      toast({
+        title: "Already completed",
+        description: "You've already completed this habit today!",
+      });
+      return;
+    }
+
+    try {
+      // Mark habit as complete (no step_id)
+      const { error: progressError } = await supabase
+        .from("habit_progress")
+        .insert({
+          habit_id: habitId,
+          child_id: child.id,
+          date: today,
+          step_id: null,
+        });
+
+      if (progressError) throw progressError;
+
+      // Award coins
+      const { error: coinError } = await supabase
+        .from("children")
+        .update({ coin_balance: child.coin_balance + habit.coins_per_completion })
+        .eq("id", child.id);
+
+      if (coinError) throw coinError;
+
+      toast({
+        title: "Great job! 🎉",
+        description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
+      });
+
+      // Refresh data
+      fetchChildData();
+    } catch (error) {
+      console.error("Error completing habit:", error);
+      toast({
+        title: "Error",
+        description: "Failed to complete habit. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleStepToggle = async (habitId: string, stepId: string, currentlyCompleted: boolean) => {
     if (!child) return;
@@ -365,10 +446,11 @@ const ChildMode = () => {
             ) : (
               <div className="space-y-4">
                 {habits.map((habit, index) => {
-                  const progress = habit.steps.length > 0 
+                  const hasSteps = habit.steps.length > 0;
+                  const progress = hasSteps 
                     ? (habit.completedSteps / habit.steps.length) * 100 
                     : 0;
-                  const isFullyCompleted = progress === 100;
+                  const isFullyCompleted = hasSteps ? progress === 100 : (habit.isCompletedToday || false);
 
                   return (
                     <Card
@@ -396,7 +478,7 @@ const ChildMode = () => {
                           </div>
                         </div>
 
-                        {habit.steps.length > 0 && (
+                        {hasSteps ? (
                           <>
                             <Progress value={progress} className="mb-4 h-2" />
                             <div className="space-y-2">
@@ -430,6 +512,15 @@ const ChildMode = () => {
                               ))}
                             </div>
                           </>
+                        ) : (
+                          <Button
+                            onClick={() => handleCompleteHabitWithoutSteps(habit.id)}
+                            className="w-full"
+                            variant={isFullyCompleted ? "outline" : "default"}
+                            disabled={isFullyCompleted}
+                          >
+                            {isFullyCompleted ? "Completed Today!" : "Mark as Complete"}
+                          </Button>
                         )}
                       </CardContent>
                     </Card>
