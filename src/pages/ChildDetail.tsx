@@ -2,13 +2,25 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CreateHabitDialog } from "@/components/CreateHabitDialog";
 import { CreateRewardDialog } from "@/components/CreateRewardDialog";
+import { EditHabitDialog } from "@/components/EditHabitDialog";
+import { EditRewardDialog } from "@/components/EditRewardDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Child {
   id: string;
@@ -59,6 +71,10 @@ const ChildDetail = () => {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingHabit, setEditingHabit] = useState<HabitWithSteps | null>(null);
+  const [editingReward, setEditingReward] = useState<Reward | null>(null);
+  const [deletingHabitId, setDeletingHabitId] = useState<string | null>(null);
+  const [deletingRewardId, setDeletingRewardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -171,6 +187,58 @@ const ChildDetail = () => {
     fetchData();
   }, [childId, user]);
 
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      const { error } = await supabase
+        .from("habits")
+        .delete()
+        .eq("id", habitId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Habit deleted successfully!",
+      });
+
+      setDeletingHabitId(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting habit:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete habit. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteReward = async (rewardId: string) => {
+    try {
+      const { error } = await supabase
+        .from("rewards")
+        .delete()
+        .eq("id", rewardId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Reward deleted successfully!",
+      });
+
+      setDeletingRewardId(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting reward:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete reward. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-parent flex items-center justify-center">
@@ -251,10 +319,24 @@ const ChildDetail = () => {
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2">
                         <span className="text-2xl">{habit.icon}</span>
-                        <span className="text-lg">{habit.name}</span>
+                        <span className="text-lg flex-1">{habit.name}</span>
                         {!habit.is_active && (
                           <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
                         )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setEditingHabit(habit)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeletingHabitId(habit.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -312,10 +394,24 @@ const ChildDetail = () => {
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2">
                         <span className="text-2xl">{reward.icon}</span>
-                        <span className="text-lg">{reward.name}</span>
+                        <span className="text-lg flex-1">{reward.name}</span>
                         {!reward.is_active && (
                           <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
                         )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setEditingReward(reward)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeletingRewardId(reward.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -388,6 +484,63 @@ const ChildDetail = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Edit Habit Dialog */}
+        {editingHabit && (
+          <EditHabitDialog
+            habit={editingHabit}
+            steps={editingHabit.steps}
+            open={!!editingHabit}
+            onOpenChange={(open) => !open && setEditingHabit(null)}
+            onHabitUpdated={fetchData}
+          />
+        )}
+
+        {/* Edit Reward Dialog */}
+        {editingReward && (
+          <EditRewardDialog
+            reward={editingReward}
+            open={!!editingReward}
+            onOpenChange={(open) => !open && setEditingReward(null)}
+            onRewardUpdated={fetchData}
+          />
+        )}
+
+        {/* Delete Habit Confirmation */}
+        <AlertDialog open={!!deletingHabitId} onOpenChange={(open) => !open && setDeletingHabitId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Habit</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this habit? This will also delete all progress and steps. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deletingHabitId && handleDeleteHabit(deletingHabitId)}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Reward Confirmation */}
+        <AlertDialog open={!!deletingRewardId} onOpenChange={(open) => !open && setDeletingRewardId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Reward</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this reward? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deletingRewardId && handleDeleteReward(deletingRewardId)}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
