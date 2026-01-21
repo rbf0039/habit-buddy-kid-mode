@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, Award, Coins, Flame, Gift } from "lucide-react";
+import { CheckCircle2, Circle, Award, Coins, Flame, Gift, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +76,50 @@ const ChildMode = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [completingHabitId, setCompletingHabitId] = useState<string | null>(null);
   const [togglingStepId, setTogglingStepId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Real-time countdown timer - updates every second
+  useEffect(() => {
+    const hasActiveCooldowns = habits.some(h => h.nextAvailableAt && h.nextAvailableAt.getTime() > Date.now());
+    
+    if (!hasActiveCooldowns) return;
+
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+      
+      // Check if any cooldowns have expired and refresh data
+      const expiredCooldowns = habits.filter(h => 
+        h.nextAvailableAt && 
+        h.nextAvailableAt.getTime() <= Date.now() && 
+        !h.canComplete
+      );
+      
+      if (expiredCooldowns.length > 0) {
+        fetchChildData();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [habits]);
+
+  // Format countdown time with real-time updates
+  const formatCooldownTime = useCallback((nextAvailableAt: Date | null) => {
+    if (!nextAvailableAt) return null;
+    const msLeft = nextAvailableAt.getTime() - currentTime;
+    if (msLeft <= 0) return null;
+    
+    const totalSeconds = Math.ceil(msLeft / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  }, [currentTime]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -517,20 +561,8 @@ const ChildMode = () => {
                   const isFullyCompletedForPeriod = habit.completionsToday >= habit.times_per_period;
                   const isFullyCompleted = hasSteps ? progress === 100 : isFullyCompletedForPeriod;
 
-                  // Format remaining time for cooldown
-                  const formatCooldownTime = () => {
-                    if (!habit.nextAvailableAt) return null;
-                    const minutesLeft = Math.ceil((habit.nextAvailableAt.getTime() - Date.now()) / (1000 * 60));
-                    if (minutesLeft <= 0) return null;
-                    if (minutesLeft >= 60) {
-                      const hours = Math.floor(minutesLeft / 60);
-                      const mins = minutesLeft % 60;
-                      return `${hours}h ${mins}m`;
-                    }
-                    return `${minutesLeft}m`;
-                  };
-
-                  const cooldownDisplay = formatCooldownTime();
+                  // Use the real-time countdown formatter
+                  const cooldownDisplay = formatCooldownTime(habit.nextAvailableAt);
 
                   return (
                     <Card
@@ -571,8 +603,9 @@ const ChildMode = () => {
                                 </span>
                               )}
                               {cooldownDisplay && (
-                                <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full">
-                                  Wait {cooldownDisplay}
+                                <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                  <Clock className="w-3 h-3" />
+                                  {cooldownDisplay}
                                 </span>
                               )}
                             </div>
