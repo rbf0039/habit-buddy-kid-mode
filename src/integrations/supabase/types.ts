@@ -173,8 +173,10 @@ export type Database = {
       }
       habits: {
         Row: {
+          allowed_days: string[] | null
           child_id: string
           coins_per_completion: number
+          cooldown_minutes: number
           created_at: string
           description: string | null
           frequency: string
@@ -182,10 +184,13 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          times_per_period: number
         }
         Insert: {
+          allowed_days?: string[] | null
           child_id: string
           coins_per_completion?: number
+          cooldown_minutes?: number
           created_at?: string
           description?: string | null
           frequency?: string
@@ -193,10 +198,13 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          times_per_period?: number
         }
         Update: {
+          allowed_days?: string[] | null
           child_id?: string
           coins_per_completion?: number
+          cooldown_minutes?: number
           created_at?: string
           description?: string | null
           frequency?: string
@@ -204,6 +212,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          times_per_period?: number
         }
         Relationships: [
           {
