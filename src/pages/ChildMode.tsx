@@ -102,23 +102,22 @@ const ChildMode = () => {
     return () => clearInterval(interval);
   }, [habits]);
 
-  // Format countdown time with real-time updates
+  // Format countdown time for display
   const formatCooldownTime = useCallback((nextAvailableAt: Date | null) => {
     if (!nextAvailableAt) return null;
     const msLeft = nextAvailableAt.getTime() - currentTime;
     if (msLeft <= 0) return null;
     
-    const totalSeconds = Math.ceil(msLeft / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.ceil(msLeft / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
     
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${seconds}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds}s`;
+    if (hours > 0 && minutes > 0) {
+      return `Complete again in ${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    } else if (hours > 0) {
+      return `Complete again in ${hours} hour${hours !== 1 ? 's' : ''}`;
     }
-    return `${seconds}s`;
+    return `Complete again in ${minutes} minute${minutes !== 1 ? 's' : ''}`;
   }, [currentTime]);
 
   useEffect(() => {
@@ -216,9 +215,12 @@ const ChildMode = () => {
           }
         } else {
           // For habits with steps, count full completions (when all steps are done)
-          // Each "cycle" through all steps counts as one completion
           const allStepsCompleted = steps.every(s => s.completed);
           completionsToday = allStepsCompleted ? 1 : 0;
+          // Get the most recent step completion time
+          if (allStepsCompleted && progressData && progressData.length > 0) {
+            lastCompletedAt = new Date(progressData[0].completed_at);
+          }
         }
 
         // Calculate if habit can be completed now
@@ -580,10 +582,10 @@ const ChildMode = () => {
                                 </span>
                               )}
                               {cooldownDisplay && (
-                                <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                                  <Clock className="w-3 h-3" />
+                                <div className="w-full mt-2 text-sm text-warning font-medium flex items-center gap-1">
+                                  <Clock className="w-4 h-4" />
                                   {cooldownDisplay}
-                                </span>
+                                </div>
                               )}
                             </div>
                           </div>
