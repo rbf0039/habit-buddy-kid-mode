@@ -23,12 +23,20 @@ interface Habit {
   description: string;
   icon: string;
   coins_per_completion: number;
+  frequency: string;
+  times_per_period: number;
+  cooldown_minutes: number;
+  allowed_days: string[] | null;
 }
 
 interface HabitWithSteps extends Habit {
   steps: HabitStep[];
   completedSteps: number;
-  isCompletedToday?: boolean;
+  completionsToday: number;
+  lastCompletedAt: Date | null;
+  canComplete: boolean;
+  nextAvailableAt: Date | null;
+  isScheduledToday: boolean;
 }
 
 interface Reward {
@@ -46,6 +54,16 @@ interface HabitStep {
   order_index: number;
   completed: boolean;
 }
+
+const DAY_MAP: { [key: number]: string } = {
+  0: "sun",
+  1: "mon",
+  2: "tue",
+  3: "wed",
+  4: "thu",
+  5: "fri",
+  6: "sat",
+};
 
 const ChildMode = () => {
   const { childId } = useParams();
@@ -106,8 +124,18 @@ const ChildMode = () => {
     }
 
     // Fetch steps and progress for each habit
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const currentDayOfWeek = DAY_MAP[today.getDay()];
+
     const habitsWithSteps = await Promise.all(
       (habitsData || []).map(async (habit) => {
+        // Check if habit is scheduled for today
+        let isScheduledToday = true;
+        if (habit.frequency === "custom" && habit.allowed_days) {
+          isScheduledToday = habit.allowed_days.includes(currentDayOfWeek);
+        }
+
         const { data: stepsData } = await supabase
           .from("habit_steps")
           .select("*")
@@ -116,10 +144,11 @@ const ChildMode = () => {
 
         const { data: progressData } = await supabase
           .from("habit_progress")
-          .select("step_id")
+          .select("step_id, completed_at")
           .eq("habit_id", habit.id)
           .eq("child_id", childId)
-          .eq("date", new Date().toISOString().split("T")[0]);
+          .eq("date", todayStr)
+          .order("completed_at", { ascending: false });
 
         const completedStepIds = new Set(progressData?.map((p) => p.step_id) || []);
 
@@ -128,27 +157,49 @@ const ChildMode = () => {
           completed: completedStepIds.has(step.id),
         }));
 
-        // Check if habit without steps is completed today
+        // Count completions today (for habits without steps, count null step_id entries)
         const hasSteps = steps.length > 0;
-        let isCompletedToday = false;
-        
+        let completionsToday = 0;
+        let lastCompletedAt: Date | null = null;
+
         if (!hasSteps) {
-          const { data: progressToday } = await supabase
-            .from("habit_progress")
-            .select("id")
-            .eq("habit_id", habit.id)
-            .eq("child_id", childId)
-            .eq("date", new Date().toISOString().split("T")[0])
-            .eq("step_id", null);
-          
-          isCompletedToday = !!progressToday && progressToday.length > 0;
+          const nullStepProgress = progressData?.filter(p => p.step_id === null) || [];
+          completionsToday = nullStepProgress.length;
+          if (nullStepProgress.length > 0) {
+            lastCompletedAt = new Date(nullStepProgress[0].completed_at);
+          }
+        } else {
+          // For habits with steps, count full completions (when all steps are done)
+          // Each "cycle" through all steps counts as one completion
+          const allStepsCompleted = steps.every(s => s.completed);
+          completionsToday = allStepsCompleted ? 1 : 0;
+        }
+
+        // Calculate if habit can be completed now
+        const timesPerPeriod = habit.times_per_period || 1;
+        const cooldownMinutes = habit.cooldown_minutes || 0;
+        
+        let canComplete = isScheduledToday && completionsToday < timesPerPeriod;
+        let nextAvailableAt: Date | null = null;
+
+        // Check cooldown for multi-completion habits
+        if (canComplete && timesPerPeriod > 1 && lastCompletedAt && cooldownMinutes > 0) {
+          const cooldownEnds = new Date(lastCompletedAt.getTime() + cooldownMinutes * 60 * 1000);
+          if (new Date() < cooldownEnds) {
+            canComplete = false;
+            nextAvailableAt = cooldownEnds;
+          }
         }
 
         return {
           ...habit,
           steps,
           completedSteps: steps.filter((s) => s.completed).length,
-          isCompletedToday,
+          completionsToday,
+          lastCompletedAt,
+          canComplete,
+          nextAvailableAt,
+          isScheduledToday,
         };
       })
     );
@@ -182,24 +233,29 @@ const ChildMode = () => {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    const today = new Date().toISOString().split("T")[0];
-
-    // Check if already completed today
-    const { data: existingProgress } = await supabase
-      .from("habit_progress")
-      .select("id")
-      .eq("habit_id", habitId)
-      .eq("child_id", child.id)
-      .eq("date", today)
-      .eq("step_id", null);
-
-    if (existingProgress && existingProgress.length > 0) {
-      toast({
-        title: "Already completed",
-        description: "You've already completed this habit today!",
-      });
+    // Check if can complete based on frequency, times, and cooldown
+    if (!habit.canComplete) {
+      if (!habit.isScheduledToday) {
+        toast({
+          title: "Not scheduled today",
+          description: "This habit is not scheduled for today.",
+        });
+      } else if (habit.nextAvailableAt) {
+        const minutesLeft = Math.ceil((habit.nextAvailableAt.getTime() - Date.now()) / (1000 * 60));
+        toast({
+          title: "Cooldown active",
+          description: `Wait ${minutesLeft} more minute${minutesLeft !== 1 ? 's' : ''} before completing again.`,
+        });
+      } else {
+        toast({
+          title: "Already completed",
+          description: `You've already completed this habit ${habit.times_per_period} time${habit.times_per_period !== 1 ? 's' : ''} today!`,
+        });
+      }
       return;
     }
+
+    const today = new Date().toISOString().split("T")[0];
 
     try {
       // Mark habit as complete (no step_id)
@@ -222,9 +278,10 @@ const ChildMode = () => {
 
       if (coinError) throw coinError;
 
+      const remaining = habit.times_per_period - habit.completionsToday - 1;
       toast({
         title: "Great job! 🎉",
-        description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
+        description: `You earned ${habit.coins_per_completion} coins!${remaining > 0 ? ` (${remaining} more time${remaining !== 1 ? 's' : ''} available today)` : ''}`,
       });
 
       // Refresh data
@@ -445,18 +502,38 @@ const ChildMode = () => {
               </Card>
             ) : (
               <div className="space-y-4">
-                {habits.map((habit, index) => {
+                {habits.map((habit) => {
                   const hasSteps = habit.steps.length > 0;
                   const progress = hasSteps 
                     ? (habit.completedSteps / habit.steps.length) * 100 
                     : 0;
-                  const isFullyCompleted = hasSteps ? progress === 100 : (habit.isCompletedToday || false);
+                  const isFullyCompletedForPeriod = habit.completionsToday >= habit.times_per_period;
+                  const isFullyCompleted = hasSteps ? progress === 100 : isFullyCompletedForPeriod;
+
+                  // Format remaining time for cooldown
+                  const formatCooldownTime = () => {
+                    if (!habit.nextAvailableAt) return null;
+                    const minutesLeft = Math.ceil((habit.nextAvailableAt.getTime() - Date.now()) / (1000 * 60));
+                    if (minutesLeft <= 0) return null;
+                    if (minutesLeft >= 60) {
+                      const hours = Math.floor(minutesLeft / 60);
+                      const mins = minutesLeft % 60;
+                      return `${hours}h ${mins}m`;
+                    }
+                    return `${minutesLeft}m`;
+                  };
+
+                  const cooldownDisplay = formatCooldownTime();
 
                   return (
                     <Card
                       key={habit.id}
                       className={`shadow-card ${
-                        isFullyCompleted ? "border-success/50 bg-success/5" : ""
+                        !habit.isScheduledToday 
+                          ? "opacity-50 border-muted" 
+                          : isFullyCompleted 
+                            ? "border-success/50 bg-success/5" 
+                            : ""
                       }`}
                     >
                       <CardContent className="p-6">
@@ -469,11 +546,28 @@ const ChildMode = () => {
                             {habit.description && (
                               <p className="text-sm text-muted-foreground mb-3">{habit.description}</p>
                             )}
-                            <div className="flex items-center gap-2 mb-2">
-                              <Coins className="w-4 h-4 text-warning" />
-                              <span className="text-sm font-semibold text-warning">
-                                +{habit.coins_per_completion} coins
-                              </span>
+                            <div className="flex items-center flex-wrap gap-2 mb-2">
+                              <div className="flex items-center gap-1">
+                                <Coins className="w-4 h-4 text-warning" />
+                                <span className="text-sm font-semibold text-warning">
+                                  +{habit.coins_per_completion} coins
+                                </span>
+                              </div>
+                              {habit.times_per_period > 1 && (
+                                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                                  {habit.completionsToday}/{habit.times_per_period} today
+                                </span>
+                              )}
+                              {!habit.isScheduledToday && (
+                                <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                                  Not scheduled today
+                                </span>
+                              )}
+                              {cooldownDisplay && (
+                                <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full">
+                                  Wait {cooldownDisplay}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -488,11 +582,12 @@ const ChildMode = () => {
                                   onClick={() =>
                                     handleStepToggle(habit.id, step.id, step.completed)
                                   }
+                                  disabled={!habit.isScheduledToday}
                                   className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-300 ${
                                     step.completed
                                       ? "bg-success/10 border border-success/30"
                                       : "bg-muted/50 hover:bg-muted border border-border"
-                                  }`}
+                                  } ${!habit.isScheduledToday ? "cursor-not-allowed" : ""}`}
                                 >
                                   {step.completed ? (
                                     <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0 animate-celebrate" />
@@ -516,10 +611,16 @@ const ChildMode = () => {
                           <Button
                             onClick={() => handleCompleteHabitWithoutSteps(habit.id)}
                             className="w-full"
-                            variant={isFullyCompleted ? "outline" : "default"}
-                            disabled={isFullyCompleted}
+                            variant={isFullyCompleted || !habit.canComplete ? "outline" : "default"}
+                            disabled={!habit.canComplete}
                           >
-                            {isFullyCompleted ? "Completed Today!" : "Mark as Complete"}
+                            {!habit.isScheduledToday 
+                              ? "Not Scheduled Today"
+                              : isFullyCompletedForPeriod 
+                                ? `Completed ${habit.times_per_period}x Today!` 
+                                : cooldownDisplay 
+                                  ? `Wait ${cooldownDisplay}`
+                                  : "Mark as Complete"}
                           </Button>
                         )}
                       </CardContent>

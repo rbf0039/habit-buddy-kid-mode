@@ -38,6 +38,9 @@ interface Habit {
   frequency: string;
   coins_per_completion: number;
   is_active: boolean;
+  times_per_period: number;
+  cooldown_minutes: number;
+  allowed_days: string[] | null;
 }
 
 interface HabitWithSteps extends Habit {
