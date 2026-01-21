@@ -74,6 +74,8 @@ const ChildMode = () => {
   const [habits, setHabits] = useState<HabitWithSteps[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [completingHabitId, setCompletingHabitId] = useState<string | null>(null);
+  const [togglingStepId, setTogglingStepId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -228,7 +230,7 @@ const ChildMode = () => {
   }, [childId, user]);
 
   const handleCompleteHabitWithoutSteps = async (habitId: string) => {
-    if (!child) return;
+    if (!child || completingHabitId) return;
 
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
@@ -254,6 +256,14 @@ const ChildMode = () => {
       }
       return;
     }
+
+    // Immediately disable button
+    setCompletingHabitId(habitId);
+    
+    // Optimistically update canComplete to prevent double-clicks
+    setHabits(prevHabits => prevHabits.map(h => 
+      h.id === habitId ? { ...h, canComplete: false } : h
+    ));
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -285,108 +295,105 @@ const ChildMode = () => {
       });
 
       // Refresh data
-      fetchChildData();
-    } catch (error) {
+      await fetchChildData();
+    } catch (error: unknown) {
       console.error("Error completing habit:", error);
+      // Parse server-side validation errors
+      const errorMessage = error instanceof Error ? error.message : "Failed to complete habit. Please try again.";
       toast({
-        title: "Error",
-        description: "Failed to complete habit. Please try again.",
+        title: "Cannot complete habit",
+        description: errorMessage.includes("Cooldown") || errorMessage.includes("Maximum") 
+          ? errorMessage 
+          : "Failed to complete habit. Please try again.",
         variant: "destructive",
       });
+      // Refresh to get accurate state
+      await fetchChildData();
+    } finally {
+      setCompletingHabitId(null);
     }
   };
 
   const handleStepToggle = async (habitId: string, stepId: string, currentlyCompleted: boolean) => {
-    if (!child) return;
+    if (!child || togglingStepId) return;
 
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
 
+    // Immediately disable the step button
+    setTogglingStepId(stepId);
+
     const today = new Date().toISOString().split("T")[0];
 
-    if (currentlyCompleted) {
-      // Check if habit was fully completed before uncompleting this step
-      const wasFullyCompleted = habit.completedSteps === habit.steps.length;
+    try {
+      if (currentlyCompleted) {
+        // Check if habit was fully completed before uncompleting this step
+        const wasFullyCompleted = habit.completedSteps === habit.steps.length;
 
-      // Uncomplete the step
-      const { error } = await supabase
-        .from("habit_progress")
-        .delete()
-        .eq("habit_id", habitId)
-        .eq("step_id", stepId)
-        .eq("child_id", child.id)
-        .eq("date", today);
+        // Uncomplete the step
+        const { error } = await supabase
+          .from("habit_progress")
+          .delete()
+          .eq("habit_id", habitId)
+          .eq("step_id", stepId)
+          .eq("child_id", child.id)
+          .eq("date", today);
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update progress.",
-          variant: "destructive",
-        });
-        return;
-      }
+        if (error) throw error;
 
-      // If habit was fully completed, deduct coins
-      if (wasFullyCompleted) {
-        const { error: coinError } = await supabase
-          .from("children")
-          .update({ coin_balance: Math.max(0, child.coin_balance - habit.coins_per_completion) })
-          .eq("id", child.id);
+        // If habit was fully completed, deduct coins
+        if (wasFullyCompleted) {
+          const { error: coinError } = await supabase
+            .from("children")
+            .update({ coin_balance: Math.max(0, child.coin_balance - habit.coins_per_completion) })
+            .eq("id", child.id);
 
-        if (coinError) {
-          toast({
-            title: "Error",
-            description: "Failed to update coins.",
-            variant: "destructive",
-          });
+          if (coinError) throw coinError;
         }
-      }
-    } else {
-      // Complete the step
-      const { error } = await supabase.from("habit_progress").insert({
-        habit_id: habitId,
-        step_id: stepId,
-        child_id: child.id,
-        date: today,
-      });
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update progress.",
-          variant: "destructive",
+      } else {
+        // Complete the step
+        const { error } = await supabase.from("habit_progress").insert({
+          habit_id: habitId,
+          step_id: stepId,
+          child_id: child.id,
+          date: today,
         });
-        return;
-      }
 
-      // Check if this completes the habit
-      const newCompletedSteps = habit.completedSteps + 1;
-      const isNowFullyCompleted = newCompletedSteps === habit.steps.length;
+        if (error) throw error;
 
-      if (isNowFullyCompleted) {
-        // Award coins
-        const { error: coinError } = await supabase
-          .from("children")
-          .update({ coin_balance: child.coin_balance + habit.coins_per_completion })
-          .eq("id", child.id);
+        // Check if this completes the habit
+        const newCompletedSteps = habit.completedSteps + 1;
+        const isNowFullyCompleted = newCompletedSteps === habit.steps.length;
 
-        if (coinError) {
-          toast({
-            title: "Error",
-            description: "Failed to award coins.",
-            variant: "destructive",
-          });
-        } else {
+        if (isNowFullyCompleted) {
+          // Award coins
+          const { error: coinError } = await supabase
+            .from("children")
+            .update({ coin_balance: child.coin_balance + habit.coins_per_completion })
+            .eq("id", child.id);
+
+          if (coinError) throw coinError;
+
           toast({
             title: "Great job! 🎉",
             description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
           });
         }
       }
-    }
 
-    // Refresh data
-    fetchChildData();
+      // Refresh data
+      await fetchChildData();
+    } catch (error) {
+      console.error("Error toggling step:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update progress. Please try again.",
+        variant: "destructive",
+      });
+      await fetchChildData();
+    } finally {
+      setTogglingStepId(null);
+    }
   };
 
   const handleRedeemReward = async (reward: Reward) => {
@@ -582,14 +589,16 @@ const ChildMode = () => {
                                   onClick={() =>
                                     handleStepToggle(habit.id, step.id, step.completed)
                                   }
-                                  disabled={!habit.isScheduledToday}
+                                  disabled={!habit.isScheduledToday || togglingStepId === step.id}
                                   className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-300 ${
                                     step.completed
                                       ? "bg-success/10 border border-success/30"
                                       : "bg-muted/50 hover:bg-muted border border-border"
-                                  } ${!habit.isScheduledToday ? "cursor-not-allowed" : ""}`}
+                                  } ${!habit.isScheduledToday || togglingStepId === step.id ? "cursor-not-allowed opacity-70" : ""}`}
                                 >
-                                  {step.completed ? (
+                                  {togglingStepId === step.id ? (
+                                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                  ) : step.completed ? (
                                     <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0 animate-celebrate" />
                                   ) : (
                                     <Circle className="w-6 h-6 text-muted-foreground flex-shrink-0" />
@@ -612,15 +621,17 @@ const ChildMode = () => {
                             onClick={() => handleCompleteHabitWithoutSteps(habit.id)}
                             className="w-full"
                             variant={isFullyCompleted || !habit.canComplete ? "outline" : "default"}
-                            disabled={!habit.canComplete}
+                            disabled={!habit.canComplete || completingHabitId === habit.id}
                           >
-                            {!habit.isScheduledToday 
-                              ? "Not Scheduled Today"
-                              : isFullyCompletedForPeriod 
-                                ? `Completed ${habit.times_per_period}x Today!` 
-                                : cooldownDisplay 
-                                  ? `Wait ${cooldownDisplay}`
-                                  : "Mark as Complete"}
+                            {completingHabitId === habit.id
+                              ? "Completing..."
+                              : !habit.isScheduledToday 
+                                ? "Not Scheduled Today"
+                                : isFullyCompletedForPeriod 
+                                  ? `Completed ${habit.times_per_period}x Today!` 
+                                  : cooldownDisplay 
+                                    ? `Wait ${cooldownDisplay}`
+                                    : "Mark as Complete"}
                           </Button>
                         )}
                       </CardContent>
