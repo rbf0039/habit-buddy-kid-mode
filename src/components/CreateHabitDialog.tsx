@@ -261,7 +261,17 @@ export const CreateHabitDialog = ({ childId, onHabitCreated, trigger }: CreateHa
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="timesPerPeriod">Times per {frequency === "weekly" ? "week" : "day"}</Label>
-              <Select value={timesPerPeriod.toString()} onValueChange={(v) => setTimesPerPeriod(parseInt(v))}>
+              <Select 
+                value={timesPerPeriod.toString()} 
+                onValueChange={(v) => {
+                  const newValue = parseInt(v);
+                  setTimesPerPeriod(newValue);
+                  // Auto-set cooldown when enabling multi-completion
+                  if (newValue > 1 && cooldownMinutes === 0) {
+                    setCooldownMinutes(60); // Default to 1 hour
+                  }
+                }}
+              >
                 <SelectTrigger id="timesPerPeriod">
                   <SelectValue />
                 </SelectTrigger>
