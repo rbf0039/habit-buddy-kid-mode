@@ -358,7 +358,10 @@ const ChildMode = () => {
     }
   };
 
-  const handleStepToggle = async (habitId: string, stepId: string, currentlyCompleted: boolean) => {
+  const handleStepComplete = async (habitId: string, stepId: string, currentlyCompleted: boolean) => {
+    // Don't allow unchecking steps - only allow completing
+    if (currentlyCompleted) return;
+    
     if (!child || togglingStepId) return;
 
     const habit = habits.find(h => h.id === habitId);
@@ -370,65 +373,39 @@ const ChildMode = () => {
     const today = new Date().toISOString().split("T")[0];
 
     try {
-      if (currentlyCompleted) {
-        // Check if habit was fully completed before uncompleting this step
-        const wasFullyCompleted = habit.completedSteps === habit.steps.length;
+      // Complete the step
+      const { error } = await supabase.from("habit_progress").insert({
+        habit_id: habitId,
+        step_id: stepId,
+        child_id: child.id,
+        date: today,
+      });
 
-        // Uncomplete the step
-        const { error } = await supabase
-          .from("habit_progress")
-          .delete()
-          .eq("habit_id", habitId)
-          .eq("step_id", stepId)
-          .eq("child_id", child.id)
-          .eq("date", today);
+      if (error) throw error;
 
-        if (error) throw error;
+      // Check if this completes the habit
+      const newCompletedSteps = habit.completedSteps + 1;
+      const isNowFullyCompleted = newCompletedSteps === habit.steps.length;
 
-        // If habit was fully completed, deduct coins
-        if (wasFullyCompleted) {
-          const { error: coinError } = await supabase
-            .from("children")
-            .update({ coin_balance: Math.max(0, child.coin_balance - habit.coins_per_completion) })
-            .eq("id", child.id);
+      if (isNowFullyCompleted) {
+        // Award coins
+        const { error: coinError } = await supabase
+          .from("children")
+          .update({ coin_balance: child.coin_balance + habit.coins_per_completion })
+          .eq("id", child.id);
 
-          if (coinError) throw coinError;
-        }
-      } else {
-        // Complete the step
-        const { error } = await supabase.from("habit_progress").insert({
-          habit_id: habitId,
-          step_id: stepId,
-          child_id: child.id,
-          date: today,
+        if (coinError) throw coinError;
+
+        toast({
+          title: "Great job! 🎉",
+          description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
         });
-
-        if (error) throw error;
-
-        // Check if this completes the habit
-        const newCompletedSteps = habit.completedSteps + 1;
-        const isNowFullyCompleted = newCompletedSteps === habit.steps.length;
-
-        if (isNowFullyCompleted) {
-          // Award coins
-          const { error: coinError } = await supabase
-            .from("children")
-            .update({ coin_balance: child.coin_balance + habit.coins_per_completion })
-            .eq("id", child.id);
-
-          if (coinError) throw coinError;
-
-          toast({
-            title: "Great job! 🎉",
-            description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
-          });
-        }
       }
 
       // Refresh data
       await fetchChildData();
     } catch (error) {
-      console.error("Error toggling step:", error);
+      console.error("Error completing step:", error);
       toast({
         title: "Error",
         description: "Failed to update progress. Please try again.",
@@ -620,12 +597,12 @@ const ChildMode = () => {
                                 <button
                                   key={step.id}
                                   onClick={() =>
-                                    handleStepToggle(habit.id, step.id, step.completed)
+                                    handleStepComplete(habit.id, step.id, step.completed)
                                   }
-                                  disabled={!habit.isScheduledToday || togglingStepId === step.id}
+                                  disabled={step.completed || !habit.isScheduledToday || togglingStepId === step.id}
                                   className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-300 ${
                                     step.completed
-                                      ? "bg-success/10 border border-success/30"
+                                      ? "bg-success/10 border border-success/30 cursor-default"
                                       : "bg-muted/50 hover:bg-muted border border-border"
                                   } ${!habit.isScheduledToday || togglingStepId === step.id ? "cursor-not-allowed opacity-70" : ""}`}
                                 >
