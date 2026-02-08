@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock, Pencil, Trash2, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -242,6 +242,67 @@ const ChildDetail = () => {
     }
   };
 
+  const handleApproveRedemption = async (redemptionId: string) => {
+    try {
+      const { error } = await supabase
+        .from("reward_redemptions")
+        .update({ status: "approved" })
+        .eq("id", redemptionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Reward redemption approved!",
+      });
+
+      fetchData();
+    } catch (error) {
+      console.error("Error approving redemption:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve redemption. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDenyRedemption = async (redemptionId: string, coinCost: number) => {
+    if (!child) return;
+    
+    try {
+      // Update redemption status to denied
+      const { error: redemptionError } = await supabase
+        .from("reward_redemptions")
+        .update({ status: "denied" })
+        .eq("id", redemptionId);
+
+      if (redemptionError) throw redemptionError;
+
+      // Refund coins to child
+      const { error: coinError } = await supabase
+        .from("children")
+        .update({ coin_balance: child.coin_balance + coinCost })
+        .eq("id", child.id);
+
+      if (coinError) throw coinError;
+
+      toast({
+        title: "Redemption Denied",
+        description: `${coinCost} coins have been refunded to ${child.name}.`,
+      });
+
+      fetchData();
+    } catch (error) {
+      console.error("Error denying redemption:", error);
+      toast({
+        title: "Error",
+        description: "Failed to deny redemption. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-parent flex items-center justify-center">
@@ -471,11 +532,36 @@ const ChildDetail = () => {
                               {new Date(redemption.redeemed_at).toLocaleDateString()}
                             </span>
                           </div>
+                          
+                          {/* Approve/Deny buttons for pending redemptions */}
+                          {redemption.status === 'pending' && (
+                            <div className="flex gap-2 mt-3">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="bg-success hover:bg-success/90"
+                                onClick={() => handleApproveRedemption(redemption.id)}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDenyRedemption(redemption.id, redemption.reward.coin_cost)}
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Deny
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <div className={`px-2 py-1 rounded text-xs font-medium ${
-                          redemption.status === 'completed' 
+                          redemption.status === 'approved' 
                             ? 'bg-success/20 text-success' 
-                            : 'bg-warning/20 text-warning'
+                            : redemption.status === 'denied'
+                              ? 'bg-destructive/20 text-destructive'
+                              : 'bg-warning/20 text-warning'
                         }`}>
                           {redemption.status}
                         </div>
