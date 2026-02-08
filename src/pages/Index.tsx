@@ -45,10 +45,13 @@ const Index = () => {
         </div>
 
         <div className="flex flex-col gap-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <Button variant="default" size="lg" className="w-full" onClick={() => navigate("/auth")}>
+          <Button variant="default" size="lg" className="w-full" onClick={() => navigate("/auth?tab=signup")}>
             Get Started as a Parent
           </Button>
-          <Button variant="outline" size="lg" className="w-full" onClick={() => navigate("/dashboard")}>
+          <Button variant="outline" size="lg" className="w-full" onClick={() => navigate("/auth")}>
+            Sign In as a Parent
+          </Button>
+          <Button variant="ghost" size="lg" className="w-full" onClick={() => navigate("/dashboard")}>
             View Demo Dashboard
           </Button>
         </div>
