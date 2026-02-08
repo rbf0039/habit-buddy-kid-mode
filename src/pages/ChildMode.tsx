@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import confetti from "canvas-confetti";
 
 interface Child {
   id: string;
@@ -328,6 +329,31 @@ const ChildMode = () => {
           // Also refresh child data to update coin balance if denied
           if (payload.new.status === 'denied') {
             fetchChildData();
+          }
+          
+          // Show celebration confetti when approved!
+          if (payload.new.status === 'approved') {
+            // Fire confetti from both sides
+            confetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { x: 0.1, y: 0.6 }
+            });
+            confetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { x: 0.9, y: 0.6 }
+            });
+            // Fire from center with stars
+            setTimeout(() => {
+              confetti({
+                particleCount: 50,
+                spread: 100,
+                origin: { y: 0.7 },
+                shapes: ['star'],
+                colors: ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#9370DB']
+              });
+            }, 200);
           }
           
           // Show toast notification
