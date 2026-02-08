@@ -231,6 +231,7 @@ export type Database = {
           id: string
           name: string
           pin: string | null
+          timezone: string
         }
         Insert: {
           created_at?: string
@@ -238,6 +239,7 @@ export type Database = {
           id: string
           name: string
           pin?: string | null
+          timezone?: string
         }
         Update: {
           created_at?: string
@@ -245,6 +247,7 @@ export type Database = {
           id?: string
           name?: string
           pin?: string | null
+          timezone?: string
         }
         Relationships: []
       }
