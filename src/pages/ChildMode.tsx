@@ -301,6 +301,52 @@ const ChildMode = () => {
     fetchChildData();
   }, [childId, user]);
 
+  // Real-time subscription for redemption status changes
+  useEffect(() => {
+    if (!childId) return;
+
+    const channel = supabase
+      .channel(`redemptions-${childId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'reward_redemptions',
+          filter: `child_id=eq.${childId}`,
+        },
+        (payload) => {
+          // Update the local redemptions state with the new status
+          setRedemptions(prev => 
+            prev.map(r => 
+              r.id === payload.new.id 
+                ? { ...r, status: payload.new.status } 
+                : r
+            )
+          );
+          
+          // Also refresh child data to update coin balance if denied
+          if (payload.new.status === 'denied') {
+            fetchChildData();
+          }
+          
+          // Show toast notification
+          const statusMessage = payload.new.status === 'approved' 
+            ? '🎉 Your reward was approved!' 
+            : '❌ Your reward was denied. Coins refunded.';
+          toast({
+            title: payload.new.status === 'approved' ? 'Approved!' : 'Denied',
+            description: statusMessage,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [childId]);
+
   const handleCompleteHabitWithoutSteps = async (habitId: string) => {
     if (!child || completingHabitId) return;
 
