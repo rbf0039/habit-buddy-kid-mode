@@ -66,7 +66,7 @@ export const EditHabitDialog = ({ habit, steps: initialSteps, open, onOpenChange
   const [timesPerPeriod, setTimesPerPeriod] = useState(habit.times_per_period || 1);
   const [cooldownMinutes, setCooldownMinutes] = useState(habit.cooldown_minutes || 60);
   const [allowedDays, setAllowedDays] = useState<string[]>(habit.allowed_days || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
-  const [coinsPerCompletion, setCoinsPerCompletion] = useState(habit.coins_per_completion);
+  const [coinsPerCompletion, setCoinsPerCompletion] = useState(habit.coins_per_completion.toString());
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const [newStepName, setNewStepName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,7 +80,7 @@ export const EditHabitDialog = ({ habit, steps: initialSteps, open, onOpenChange
     setTimesPerPeriod(habit.times_per_period || 1);
     setCooldownMinutes(habit.cooldown_minutes || 60);
     setAllowedDays(habit.allowed_days || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
-    setCoinsPerCompletion(habit.coins_per_completion);
+    setCoinsPerCompletion(habit.coins_per_completion.toString());
     setSteps(initialSteps);
   }, [habit, initialSteps]);
 
@@ -138,7 +138,7 @@ export const EditHabitDialog = ({ habit, steps: initialSteps, open, onOpenChange
           times_per_period: timesPerPeriod,
           cooldown_minutes: timesPerPeriod > 1 ? cooldownMinutes : 0,
           allowed_days: frequency === "custom" ? allowedDays : null,
-          coins_per_completion: coinsPerCompletion,
+          coins_per_completion: parseInt(coinsPerCompletion) || 1,
         })
         .eq("id", habit.id);
 
@@ -301,9 +301,10 @@ export const EditHabitDialog = ({ habit, steps: initialSteps, open, onOpenChange
                 id="coins"
                 type="number"
                 value={coinsPerCompletion}
-                onChange={(e) => setCoinsPerCompletion(parseInt(e.target.value) || 0)}
+                onChange={(e) => setCoinsPerCompletion(e.target.value)}
                 min={1}
                 max={1000}
+                placeholder="e.g., 5"
               />
             </div>
           </div>
