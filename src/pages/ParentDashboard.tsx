@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Settings, Users, LogOut, Smartphone } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Settings, Users, LogOut, Smartphone, Pencil } from "lucide-react";
 import { AddChildDialog } from "@/components/AddChildDialog";
+import { EditChildDialog } from "@/components/EditChildDialog";
 import { PinDialog } from "@/components/PinDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Child {
   id: string;
   name: string;
-  age: number;
+  avatar_url: string | null;
   coin_balance: number;
   current_streak: number;
 }
@@ -24,6 +26,7 @@ const ParentDashboard = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [isLoadingChildren, setIsLoadingChildren] = useState(true);
   const [showPinDialog, setShowPinDialog] = useState(false);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -147,21 +150,39 @@ const ParentDashboard = () => {
               {children.map((child, index) => (
                 <Card
                   key={child.id}
-                  className="shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in-up"
+                  className="shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-in-up"
                   style={{ animationDelay: `${0.3 + index * 0.1}s` }}
-                  onClick={() => navigate(`/child/${child.id}/manage`)}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <div>
+                      <div 
+                        className="flex items-center gap-3 flex-1 cursor-pointer"
+                        onClick={() => navigate(`/child/${child.id}/manage`)}
+                      >
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={child.avatar_url || undefined} alt={child.name} />
+                          <AvatarFallback className="bg-gradient-primary text-white font-bold">
+                            {child.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                         <h3 className="text-lg font-bold text-foreground">{child.name}</h3>
-                        <p className="text-sm text-muted-foreground">Age {child.age}</p>
                       </div>
-                      <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-lg shadow-glow">
-                        {child.name.charAt(0).toUpperCase()}
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingChild(child);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div 
+                      className="grid grid-cols-2 gap-4 cursor-pointer"
+                      onClick={() => navigate(`/child/${child.id}/manage`)}
+                    >
                       <div className="bg-warning/10 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold text-warning">{child.coin_balance}</p>
                         <p className="text-xs text-muted-foreground">Habit Coins</p>
@@ -211,6 +232,15 @@ const ParentDashboard = () => {
         onSuccess={handlePinCreated}
         onCreate={createPin}
       />
+
+      {editingChild && (
+        <EditChildDialog
+          open={!!editingChild}
+          onOpenChange={(open) => !open && setEditingChild(null)}
+          child={editingChild}
+          onChildUpdated={fetchChildren}
+        />
+      )}
     </div>
   );
 };
