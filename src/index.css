@@ -35,6 +35,18 @@ All colors MUST be HSL.
     --accent: 145 70% 45%;
     --accent-foreground: 0 0% 100%;
     
+    /* Success color (same as accent for consistency) */
+    --success: 145 70% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning color */
+    --warning: 45 100% 50%;
+    --warning-foreground: 215 25% 15%;
+    
+    /* Danger/Error color */
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+    
     /* Bright yellow - encouragement */
     --highlight: 45 100% 60%;
     --highlight-foreground: 215 25% 15%;
@@ -95,6 +107,15 @@ All colors MUST be HSL.
 
     --accent: 145 70% 50%;
     --accent-foreground: 0 0% 100%;
+    
+    --success: 145 70% 50%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 45 100% 55%;
+    --warning-foreground: 215 25% 15%;
+    
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
     
     --highlight: 45 100% 65%;
     --highlight-foreground: 215 25% 15%;
