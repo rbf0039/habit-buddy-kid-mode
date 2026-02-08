@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Settings, Users, LogOut, Smartphone, Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Settings, Users, LogOut, Smartphone, Pencil, Bell } from "lucide-react";
 import { AddChildDialog } from "@/components/AddChildDialog";
 import { EditChildDialog } from "@/components/EditChildDialog";
 import { PinDialog } from "@/components/PinDialog";
@@ -19,6 +20,10 @@ interface Child {
   current_streak: number;
 }
 
+interface PendingCounts {
+  [childId: string]: number;
+}
+
 const ParentDashboard = () => {
   const navigate = useNavigate();
   const { user, signOut, loading, setChildMode, hasPin, createPin } = useAuth();
@@ -27,6 +32,7 @@ const ParentDashboard = () => {
   const [isLoadingChildren, setIsLoadingChildren] = useState(true);
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [pendingCounts, setPendingCounts] = useState<PendingCounts>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -62,13 +68,65 @@ const ParentDashboard = () => {
       });
     } else {
       setChildren(data || []);
+      // Fetch pending redemption counts for each child
+      if (data && data.length > 0) {
+        fetchPendingCounts(data.map(c => c.id));
+      }
     }
     setIsLoadingChildren(false);
+  };
+
+  const fetchPendingCounts = async (childIds: string[]) => {
+    const { data, error } = await supabase
+      .from("reward_redemptions")
+      .select("child_id")
+      .in("child_id", childIds)
+      .eq("status", "pending");
+
+    if (!error && data) {
+      const counts: PendingCounts = {};
+      data.forEach(redemption => {
+        counts[redemption.child_id] = (counts[redemption.child_id] || 0) + 1;
+      });
+      setPendingCounts(counts);
+    }
   };
 
   useEffect(() => {
     fetchChildren();
   }, [user]);
+
+  // Real-time subscription for pending redemptions
+  useEffect(() => {
+    if (!user || children.length === 0) return;
+
+    const childIds = children.map(c => c.id);
+    
+    const channel = supabase
+      .channel('pending-redemptions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reward_redemptions',
+        },
+        (payload) => {
+          // Refresh counts when any redemption changes
+          if (payload.new && childIds.includes((payload.new as any).child_id)) {
+            fetchPendingCounts(childIds);
+          }
+          if (payload.old && childIds.includes((payload.old as any).child_id)) {
+            fetchPendingCounts(childIds);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, children]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -159,13 +217,30 @@ const ParentDashboard = () => {
                         className="flex items-center gap-3 flex-1 cursor-pointer"
                         onClick={() => navigate(`/child/${child.id}/manage`)}
                       >
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={child.avatar_url || undefined} alt={child.name} />
-                          <AvatarFallback className="bg-gradient-primary text-white font-bold">
-                            {child.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <h3 className="text-lg font-bold text-foreground">{child.name}</h3>
+                        <div className="relative">
+                          <Avatar className="w-12 h-12">
+                            <AvatarImage src={child.avatar_url || undefined} alt={child.name} />
+                            <AvatarFallback className="bg-gradient-primary text-white font-bold">
+                              {child.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {pendingCounts[child.id] > 0 && (
+                            <Badge 
+                              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-destructive text-destructive-foreground text-xs animate-pulse"
+                            >
+                              {pendingCounts[child.id]}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <h3 className="text-lg font-bold text-foreground">{child.name}</h3>
+                          {pendingCounts[child.id] > 0 && (
+                            <span className="text-xs text-destructive flex items-center gap-1">
+                              <Bell className="w-3 h-3" />
+                              {pendingCounts[child.id]} pending approval{pendingCounts[child.id] > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
