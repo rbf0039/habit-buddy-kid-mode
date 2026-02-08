@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { CheckCircle2, Circle, Award, Coins, Flame, Gift, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,9 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface Child {
   id: string;
   name: string;
-  age: number;
   coin_balance: number;
   current_streak: number;
+  avatar_url: string | null;
 }
 
 interface Habit {
@@ -485,9 +486,12 @@ const ChildMode = () => {
       <div className="max-w-md mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-3xl shadow-glow">
-            {child.name.charAt(0).toUpperCase()}
-          </div>
+          <Avatar className="w-20 h-20 mx-auto mb-4 shadow-glow">
+            <AvatarImage src={child.avatar_url || undefined} alt={child.name} />
+            <AvatarFallback className="text-3xl font-bold bg-gradient-primary text-white">
+              {child.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Hi, {child.name}! 👋
           </h1>
