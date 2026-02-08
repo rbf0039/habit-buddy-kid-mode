@@ -88,6 +88,59 @@ const ChildMode = () => {
   const [togglingStepId, setTogglingStepId] = useState<string | null>(null);
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [seenApprovals, setSeenApprovals] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState("habits");
+
+  // Trigger confetti when switching to "My Rewards" tab and there are unseen approvals
+  const triggerCelebrationConfetti = () => {
+    // Fire confetti from both sides
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { x: 0.1, y: 0.6 }
+    });
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { x: 0.9, y: 0.6 }
+    });
+    // Fire from center with stars
+    setTimeout(() => {
+      confetti({
+        particleCount: 50,
+        spread: 100,
+        origin: { y: 0.7 },
+        shapes: ['star'],
+        colors: ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#9370DB']
+      });
+    }, 200);
+  };
+
+  // Check for unseen approvals when tab changes to "my-rewards"
+  useEffect(() => {
+    if (activeTab === "my-rewards") {
+      const approvedRedemptions = redemptions.filter(r => r.status === "approved");
+      const unseenApprovals = approvedRedemptions.filter(r => !seenApprovals.has(r.id));
+      
+      if (unseenApprovals.length > 0) {
+        // Trigger confetti for unseen approvals
+        triggerCelebrationConfetti();
+        
+        // Mark all approved as seen
+        setSeenApprovals(prev => {
+          const newSet = new Set(prev);
+          approvedRedemptions.forEach(r => newSet.add(r.id));
+          return newSet;
+        });
+        
+        // Show toast
+        toast({
+          title: "🎉 Congratulations!",
+          description: `You have ${unseenApprovals.length} approved reward${unseenApprovals.length > 1 ? 's' : ''}!`,
+        });
+      }
+    }
+  }, [activeTab, redemptions, seenApprovals]);
 
   // Real-time countdown timer - updates every second
   useEffect(() => {
@@ -331,29 +384,11 @@ const ChildMode = () => {
             fetchChildData();
           }
           
-          // Show celebration confetti when approved!
+          // Show celebration confetti when approved (only if on my-rewards tab)
           if (payload.new.status === 'approved') {
-            // Fire confetti from both sides
-            confetti({
-              particleCount: 100,
-              spread: 70,
-              origin: { x: 0.1, y: 0.6 }
-            });
-            confetti({
-              particleCount: 100,
-              spread: 70,
-              origin: { x: 0.9, y: 0.6 }
-            });
-            // Fire from center with stars
-            setTimeout(() => {
-              confetti({
-                particleCount: 50,
-                spread: 100,
-                origin: { y: 0.7 },
-                shapes: ['star'],
-                colors: ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#9370DB']
-              });
-            }, 200);
+            triggerCelebrationConfetti();
+            // Mark this approval as seen immediately since they saw it in real-time
+            setSeenApprovals(prev => new Set(prev).add(payload.new.id));
           }
           
           // Show toast notification
@@ -614,7 +649,7 @@ const ChildMode = () => {
         </div>
 
         {/* Tabs for Habits, Rewards, and My Rewards */}
-        <Tabs defaultValue="habits" className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="habits">My Habits</TabsTrigger>
             <TabsTrigger value="rewards">Store</TabsTrigger>
