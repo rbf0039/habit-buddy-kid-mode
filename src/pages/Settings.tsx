@@ -92,6 +92,26 @@ const Settings = () => {
     }
   };
 
+  const handleSessionError = (error: any) => {
+    // Check for session-related errors
+    if (error?.message?.includes("session") || 
+        error?.code === "session_not_found" ||
+        error?.message?.includes("Auth session missing")) {
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please log in again.",
+        variant: "destructive",
+      });
+      // Force logout and redirect
+      setTimeout(() => {
+        localStorage.removeItem("sb-nfwbigpwjcurpchczwib-auth-token");
+        window.location.href = "/auth";
+      }, 1500);
+      return true;
+    }
+    return false;
+  };
+
   const handleEmailChange = async () => {
     if (!newEmail.trim()) {
       toast({
@@ -111,11 +131,13 @@ const Settings = () => {
     setIsLoading(false);
 
     if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (!handleSessionError(error)) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Confirmation Sent",
@@ -162,11 +184,13 @@ const Settings = () => {
     setIsLoading(false);
 
     if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (!handleSessionError(error)) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Success",
