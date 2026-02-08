@@ -106,8 +106,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      // Even if signOut fails (e.g., session already invalidated on server),
+      // we still want to clear local state
+      console.log("Sign out error (session may have been invalidated):", error);
+    }
+    // Always clear local state regardless of server response
+    setSession(null);
+    setUser(null);
     setChildMode(false);
+    setHasPin(false);
+    localStorage.removeItem("childMode");
     navigate("/");
   };
 
