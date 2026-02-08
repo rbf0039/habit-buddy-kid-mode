@@ -143,7 +143,22 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="px-6 py-8 text-center text-sm text-muted-foreground max-w-md mx-auto">
-        <p>© 2025 HabitBuddy. Helping families grow together.</p>
+        <p className="mb-3">© 2026 HabitBuddy. Helping families grow together.</p>
+        <div className="flex justify-center gap-4">
+          <button 
+            onClick={() => navigate("/privacy")} 
+            className="underline hover:text-foreground transition-colors"
+          >
+            Privacy Policy
+          </button>
+          <span>•</span>
+          <button 
+            onClick={() => navigate("/terms")} 
+            className="underline hover:text-foreground transition-colors"
+          >
+            Terms of Service
+          </button>
+        </div>
       </footer>
     </div>
   );

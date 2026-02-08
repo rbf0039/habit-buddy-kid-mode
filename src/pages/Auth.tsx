@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -13,6 +14,8 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") === "signup" ? "signup" : "signin";
   const [isLoading, setIsLoading] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signUp, signIn, user } = useAuth();
@@ -38,6 +41,16 @@ const Auth = () => {
       toast({
         title: "Error",
         description: "Passwords do not match.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!privacyAccepted || !termsAccepted) {
+      toast({
+        title: "Error",
+        description: "Please accept the Privacy Policy and Terms of Service to continue.",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -199,6 +212,39 @@ const Auth = () => {
                       className="h-12"
                     />
                   </div>
+
+                  {/* Legal Agreements */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="privacy-policy"
+                        checked={privacyAccepted}
+                        onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor="privacy-policy" className="text-sm leading-relaxed cursor-pointer">
+                        I have read and agree to the{" "}
+                        <Link to="/privacy" className="text-primary underline hover:text-primary/80">
+                          Privacy Policy
+                        </Link>
+                      </Label>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="terms-of-service"
+                        checked={termsAccepted}
+                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor="terms-of-service" className="text-sm leading-relaxed cursor-pointer">
+                        I have read and agree to the{" "}
+                        <Link to="/terms" className="text-primary underline hover:text-primary/80">
+                          Terms of Service
+                        </Link>
+                      </Label>
+                    </div>
+                  </div>
+
                   <Button
                     type="submit"
                     variant="default"

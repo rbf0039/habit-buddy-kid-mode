@@ -10,6 +10,8 @@ import ParentDashboard from "./pages/ParentDashboard";
 import ChildMode from "./pages/ChildMode";
 import ChildDeviceDashboard from "./pages/ChildDeviceDashboard";
 import ChildDetail from "./pages/ChildDetail";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
             <Route path="/child-device" element={<ChildDeviceDashboard />} />
             <Route path="/child/:childId" element={<ChildMode />} />
             <Route path="/child/:childId/manage" element={<ChildDetail />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
