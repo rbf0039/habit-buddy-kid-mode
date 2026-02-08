@@ -1,10 +1,21 @@
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +36,7 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
   const [name, setName] = useState(child.name);
   const [avatarUrl, setAvatarUrl] = useState(child.avatar_url);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -115,6 +127,32 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
     setIsLoading(false);
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+
+    const { error } = await supabase
+      .from("children")
+      .delete()
+      .eq("id", child.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete child profile. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Deleted",
+        description: `${child.name}'s profile has been removed.`,
+      });
+      onOpenChange(false);
+      onChildUpdated();
+    }
+
+    setIsDeleting(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -177,6 +215,41 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
           >
             {isLoading ? "Saving..." : "Save Changes"}
           </Button>
+
+          {/* Delete Section */}
+          <div className="pt-4 border-t border-border">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="lg"
+                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isDeleting ? "Deleting..." : "Delete Child Profile"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete {child.name}'s profile, including all their habits, progress, and rewards. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
