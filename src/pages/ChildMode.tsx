@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { CheckCircle2, Circle, Award, Coins, Flame, Gift, Clock } from "lucide-react";
+import { CheckCircle2, Circle, Award, Coins, Flame, Gift, Clock, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,6 +49,14 @@ interface Reward {
   is_active: boolean;
 }
 
+interface RewardRedemption {
+  id: string;
+  reward_id: string;
+  redeemed_at: string;
+  status: string;
+  reward: Reward;
+}
+
 interface HabitStep {
   id: string;
   name: string;
@@ -77,6 +85,7 @@ const ChildMode = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [completingHabitId, setCompletingHabitId] = useState<string | null>(null);
   const [togglingStepId, setTogglingStepId] = useState<string | null>(null);
+  const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Real-time countdown timer - updates every second
@@ -267,6 +276,22 @@ const ChildMode = () => {
       console.error("Error fetching rewards:", rewardsError);
     } else {
       setRewards(rewardsData || []);
+    }
+
+    // Fetch reward redemptions for this child
+    const { data: redemptionsData, error: redemptionsError } = await supabase
+      .from("reward_redemptions")
+      .select(`
+        *,
+        reward:rewards(*)
+      `)
+      .eq("child_id", childId)
+      .order("redeemed_at", { ascending: false });
+
+    if (redemptionsError) {
+      console.error("Error fetching redemptions:", redemptionsError);
+    } else {
+      setRedemptions(redemptionsData || []);
     }
 
     setIsLoading(false);
@@ -516,11 +541,12 @@ const ChildMode = () => {
           </Card>
         </div>
 
-        {/* Tabs for Habits and Rewards */}
+        {/* Tabs for Habits, Rewards, and My Rewards */}
         <Tabs defaultValue="habits" className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="habits">My Habits</TabsTrigger>
-            <TabsTrigger value="rewards">Reward Store</TabsTrigger>
+            <TabsTrigger value="rewards">Store</TabsTrigger>
+            <TabsTrigger value="my-rewards">My Rewards</TabsTrigger>
           </TabsList>
 
           <TabsContent value="habits" className="mt-4">
@@ -718,6 +744,62 @@ const ChildMode = () => {
                     </Card>
                   );
                 })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="my-rewards" className="mt-4">
+            {redemptions.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-8 text-center">
+                  <History className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-foreground text-lg mb-2">No rewards redeemed yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    Earn coins by completing habits and redeem rewards!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {redemptions.map((redemption) => (
+                  <Card key={redemption.id} className="shadow-card">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl">{redemption.reward.icon}</span>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-foreground">
+                            {redemption.reward.name}
+                          </h3>
+                          {redemption.reward.description && (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {redemption.reward.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Coins className="w-3 h-3" />
+                              {redemption.reward.coin_cost} coins
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(redemption.redeemed_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          redemption.status === 'approved' 
+                            ? 'bg-success/20 text-success' 
+                            : redemption.status === 'denied'
+                              ? 'bg-destructive/20 text-destructive'
+                              : 'bg-warning/20 text-warning'
+                        }`}>
+                          {redemption.status === 'approved' ? '✓ Approved' : 
+                           redemption.status === 'denied' ? '✗ Denied' : '⏳ Pending'}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </TabsContent>
