@@ -51,7 +51,7 @@ const Index = () => {
           <Button variant="outline" size="lg" className="w-full" onClick={() => navigate("/auth")}>
             Sign In as a Parent
           </Button>
-          <Button variant="ghost" size="lg" className="w-full" onClick={() => navigate("/dashboard")}>
+          <Button variant="ghost" size="lg" className="w-full" onClick={() => navigate("/dashboard?demo=true")}>
             View Demo Dashboard
           </Button>
         </div>

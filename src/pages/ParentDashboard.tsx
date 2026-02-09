@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Users, LogOut, Smartphone, Pencil, Bell } from "lucide-react";
+import { Settings, Users, LogOut, Smartphone, Pencil, Bell, ArrowLeft } from "lucide-react";
 import { AddChildDialog } from "@/components/AddChildDialog";
 import { EditChildDialog } from "@/components/EditChildDialog";
 import { PinDialog } from "@/components/PinDialog";
@@ -24,8 +24,17 @@ interface PendingCounts {
   [childId: string]: number;
 }
 
+const DEMO_CHILDREN: Child[] = [
+  { id: "demo-1", name: "Emma", avatar_url: null, coin_balance: 42, current_streak: 7 },
+  { id: "demo-2", name: "Liam", avatar_url: null, coin_balance: 28, current_streak: 3 },
+];
+
+const DEMO_PENDING: PendingCounts = { "demo-1": 2 };
+
 const ParentDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
   const { user, signOut, loading, setChildMode, hasPin, createPin } = useAuth();
   const { toast } = useToast();
   const [children, setChildren] = useState<Child[]>([]);
@@ -35,22 +44,28 @@ const ParentDashboard = () => {
   const [pendingCounts, setPendingCounts] = useState<PendingCounts>({});
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isDemo && !loading && !user) {
       navigate("/auth");
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isDemo]);
 
   // Redirect if in child mode
   useEffect(() => {
-    if (!loading && user) {
+    if (!isDemo && !loading && user) {
       const childMode = localStorage.getItem("childMode");
       if (childMode === "true") {
         navigate("/child-device");
       }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isDemo]);
 
   const fetchChildren = async () => {
+    if (isDemo) {
+      setChildren(DEMO_CHILDREN);
+      setPendingCounts(DEMO_PENDING);
+      setIsLoadingChildren(false);
+      return;
+    }
     if (!user) return;
     
     setIsLoadingChildren(true);
@@ -94,7 +109,7 @@ const ParentDashboard = () => {
 
   useEffect(() => {
     fetchChildren();
-  }, [user]);
+  }, [user, isDemo]);
 
   // Real-time subscription for pending redemptions
   useEffect(() => {
@@ -148,7 +163,7 @@ const ParentDashboard = () => {
     navigate("/child-device");
   };
 
-  if (loading || isLoadingChildren) {
+  if (loading && !isDemo) {
     return (
       <div className="min-h-screen bg-gradient-parent flex items-center justify-center">
         <div className="text-foreground text-lg">Loading...</div>
@@ -162,26 +177,43 @@ const ParentDashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8 animate-fade-in-up">
           <div>
-            <h1 className="text-2xl font-bold text-foreground mb-1">Parent Dashboard</h1>
-            <p className="text-muted-foreground text-sm">Manage your children's habits</p>
+            <h1 className="text-2xl font-bold text-foreground mb-1">
+              {isDemo ? "Demo Dashboard" : "Parent Dashboard"}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {isDemo ? "Explore with sample data" : "Manage your children's habits"}
+            </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/settings")}
-              className="rounded-full"
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              className="rounded-full"
-            >
-              <LogOut className="w-5 h-5" />
-            </Button>
+            {isDemo ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/")}
+                className="rounded-full"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate("/settings")}
+                  className="rounded-full"
+                >
+                  <Settings className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSignOut}
+                  className="rounded-full"
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -190,7 +222,7 @@ const ParentDashboard = () => {
         <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Your Children
+            {isDemo ? "Sample Children" : "Your Children"}
           </h2>
 
           {children.length === 0 ? (
@@ -215,7 +247,7 @@ const ParentDashboard = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div 
                         className="flex items-center gap-3 flex-1 cursor-pointer"
-                        onClick={() => navigate(`/child/${child.id}/manage`)}
+                        onClick={() => !isDemo && navigate(`/child/${child.id}/manage`)}
                       >
                         <div className="relative">
                           <Avatar className="w-12 h-12">
@@ -242,21 +274,23 @@ const ParentDashboard = () => {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingChild(child);
-                        }}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      {!isDemo && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingChild(child);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                     <div 
                       className="grid grid-cols-2 gap-4 cursor-pointer"
-                      onClick={() => navigate(`/child/${child.id}/manage`)}
+                      onClick={() => !isDemo && navigate(`/child/${child.id}/manage`)}
                     >
                       <div className="bg-warning/10 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold text-warning">{child.coin_balance}</p>
@@ -274,19 +308,31 @@ const ParentDashboard = () => {
           )}
         </div>
 
-        {/* Add Child Button */}
+        {/* Action Buttons */}
         <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-          <AddChildDialog onChildAdded={fetchChildren} />
-          
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full"
-            onClick={handleSwitchToChildMode}
-          >
-            <Smartphone className="w-4 h-4 mr-2" />
-            Switch to Child Device Mode
-          </Button>
+          {isDemo ? (
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              onClick={() => navigate("/auth?tab=signup")}
+            >
+              Sign Up to Get Started
+            </Button>
+          ) : (
+            <>
+              <AddChildDialog onChildAdded={fetchChildren} />
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={handleSwitchToChildMode}
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                Switch to Child Device Mode
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Quick Tip */}
