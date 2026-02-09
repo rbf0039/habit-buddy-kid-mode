@@ -3,7 +3,7 @@ import { Star, Trophy, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
-import heroImage from "@/assets/hero-illustration.jpg";
+import heroImage from "@/assets/hero-illustration.avif";
 import coinImage from "@/assets/habit-coin.png";
 import badgeImage from "@/assets/achievement-badge.png";
 
