@@ -247,7 +247,7 @@ const ParentDashboard = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div 
                         className="flex items-center gap-3 flex-1 cursor-pointer"
-                        onClick={() => !isDemo && navigate(`/child/${child.id}/manage`)}
+                        onClick={() => navigate(isDemo ? `/child/${child.id}/manage?demo=true` : `/child/${child.id}/manage`)}
                       >
                         <div className="relative">
                           <Avatar className="w-12 h-12">
@@ -290,7 +290,7 @@ const ParentDashboard = () => {
                     </div>
                     <div 
                       className="grid grid-cols-2 gap-4 cursor-pointer"
-                      onClick={() => !isDemo && navigate(`/child/${child.id}/manage`)}
+                      onClick={() => navigate(isDemo ? `/child/${child.id}/manage?demo=true` : `/child/${child.id}/manage`)}
                     >
                       <div className="bg-warning/10 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold text-warning">{child.coin_balance}</p>
