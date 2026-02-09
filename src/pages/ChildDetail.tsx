@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock, Pencil, Trash2, XCircle } from "lucide-react";
@@ -64,9 +64,84 @@ interface RewardRedemption {
   reward: Reward;
 }
 
+// Demo data definitions
+const DEMO_CHILDREN_MAP: Record<string, Child> = {
+  "demo-1": { id: "demo-1", name: "Emma", age: 8, coin_balance: 42, current_streak: 7 },
+  "demo-2": { id: "demo-2", name: "Liam", age: 6, coin_balance: 28, current_streak: 3 },
+};
+
+const DEMO_HABITS_MAP: Record<string, HabitWithSteps[]> = {
+  "demo-1": [
+    {
+      id: "dh-1", name: "Morning Routine", description: "Get ready for the day!", icon: "🌅",
+      frequency: "daily", coins_per_completion: 15, is_active: true, times_per_period: 1,
+      cooldown_minutes: 0, allowed_days: null,
+      steps: [
+        { id: "ds-1", name: "Brush teeth", order_index: 0 },
+        { id: "ds-2", name: "Make bed", order_index: 1 },
+        { id: "ds-3", name: "Get dressed", order_index: 2 },
+      ],
+    },
+    {
+      id: "dh-2", name: "Reading Time", description: "Read for 20 minutes", icon: "📚",
+      frequency: "daily", coins_per_completion: 10, is_active: true, times_per_period: 1,
+      cooldown_minutes: 0, allowed_days: null, steps: [],
+    },
+    {
+      id: "dh-3", name: "Practice Piano", description: "Practice piano for 15 minutes", icon: "🎹",
+      frequency: "custom", coins_per_completion: 20, is_active: true, times_per_period: 1,
+      cooldown_minutes: 0, allowed_days: ["mon", "wed", "fri"],
+      steps: [
+        { id: "ds-4", name: "Warm-up scales", order_index: 0 },
+        { id: "ds-5", name: "Practice assigned piece", order_index: 1 },
+      ],
+    },
+  ],
+  "demo-2": [
+    {
+      id: "dh-4", name: "Tidy Up Toys", description: "Put toys back in the box", icon: "🧸",
+      frequency: "daily", coins_per_completion: 10, is_active: true, times_per_period: 1,
+      cooldown_minutes: 0, allowed_days: null, steps: [],
+    },
+    {
+      id: "dh-5", name: "Eat Veggies", description: "Eat all vegetables at dinner", icon: "🥦",
+      frequency: "daily", coins_per_completion: 5, is_active: true, times_per_period: 1,
+      cooldown_minutes: 0, allowed_days: null, steps: [],
+    },
+  ],
+};
+
+const DEMO_REWARDS_MAP: Record<string, Reward[]> = {
+  "demo-1": [
+    { id: "dr-1", name: "30 min Screen Time", description: "Extra screen time on the tablet", icon: "📱", coin_cost: 25, is_active: true },
+    { id: "dr-2", name: "Ice Cream Treat", description: "Pick any ice cream flavor!", icon: "🍦", coin_cost: 40, is_active: true },
+    { id: "dr-3", name: "Movie Night Pick", description: "Choose the family movie", icon: "🎬", coin_cost: 50, is_active: true },
+  ],
+  "demo-2": [
+    { id: "dr-4", name: "Sticker Pack", description: "A new sticker pack from the store", icon: "⭐", coin_cost: 15, is_active: true },
+    { id: "dr-5", name: "Park Trip", description: "Extra trip to the playground", icon: "🎢", coin_cost: 30, is_active: true },
+  ],
+};
+
+const DEMO_REDEMPTIONS_MAP: Record<string, RewardRedemption[]> = {
+  "demo-1": [
+    {
+      id: "drd-1", reward_id: "dr-1", redeemed_at: new Date(Date.now() - 86400000).toISOString(), status: "approved",
+      reward: { id: "dr-1", name: "30 min Screen Time", description: "Extra screen time on the tablet", icon: "📱", coin_cost: 25, is_active: true },
+    },
+    {
+      id: "drd-2", reward_id: "dr-2", redeemed_at: new Date().toISOString(), status: "pending",
+      reward: { id: "dr-2", name: "Ice Cream Treat", description: "Pick any ice cream flavor!", icon: "🍦", coin_cost: 40, is_active: true },
+    },
+  ],
+  "demo-2": [],
+};
+
 const ChildDetail = () => {
   const { childId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const [child, setChild] = useState<Child | null>(null);
@@ -80,13 +155,29 @@ const ChildDetail = () => {
   const [deletingRewardId, setDeletingRewardId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isDemo && !loading && !user) {
       navigate("/auth");
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isDemo]);
 
   const fetchData = async () => {
-    if (!childId || !user) return;
+    if (!childId) return;
+
+    if (isDemo) {
+      const demoChild = DEMO_CHILDREN_MAP[childId];
+      if (!demoChild) {
+        navigate("/dashboard?demo=true");
+        return;
+      }
+      setChild(demoChild);
+      setHabits(DEMO_HABITS_MAP[childId] || []);
+      setRewards(DEMO_REWARDS_MAP[childId] || []);
+      setRedemptions(DEMO_REDEMPTIONS_MAP[childId] || []);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!user) return;
 
     setIsLoading(true);
 
@@ -188,9 +279,10 @@ const ChildDetail = () => {
 
   useEffect(() => {
     fetchData();
-  }, [childId, user]);
+  }, [childId, user, isDemo]);
 
   const handleDeleteHabit = async (habitId: string) => {
+    if (isDemo) return;
     try {
       const { error } = await supabase
         .from("habits")
@@ -217,6 +309,7 @@ const ChildDetail = () => {
   };
 
   const handleDeleteReward = async (rewardId: string) => {
+    if (isDemo) return;
     try {
       const { error } = await supabase
         .from("rewards")
@@ -243,6 +336,10 @@ const ChildDetail = () => {
   };
 
   const handleApproveRedemption = async (redemptionId: string) => {
+    if (isDemo) {
+      toast({ title: "Demo Mode", description: "Sign up to manage real rewards!" });
+      return;
+    }
     try {
       const { error } = await supabase
         .from("reward_redemptions")
@@ -268,10 +365,13 @@ const ChildDetail = () => {
   };
 
   const handleDenyRedemption = async (redemptionId: string, coinCost: number) => {
+    if (isDemo) {
+      toast({ title: "Demo Mode", description: "Sign up to manage real rewards!" });
+      return;
+    }
     if (!child) return;
     
     try {
-      // Update redemption status to denied
       const { error: redemptionError } = await supabase
         .from("reward_redemptions")
         .update({ status: "denied" })
@@ -279,7 +379,6 @@ const ChildDetail = () => {
 
       if (redemptionError) throw redemptionError;
 
-      // Refund coins to child
       const { error: coinError } = await supabase
         .from("children")
         .update({ coin_balance: child.coin_balance + coinCost })
@@ -303,7 +402,7 @@ const ChildDetail = () => {
     }
   };
 
-  if (loading || isLoading) {
+  if ((loading && !isDemo) || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-parent flex items-center justify-center">
         <div className="text-foreground text-lg">Loading...</div>
@@ -322,7 +421,7 @@ const ChildDetail = () => {
         <div className="mb-6 animate-fade-in-up">
           <Button
             variant="ghost"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate(isDemo ? "/dashboard?demo=true" : "/dashboard")}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -387,20 +486,24 @@ const ChildDetail = () => {
                         {!habit.is_active && (
                           <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
                         )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setEditingHabit(habit)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setDeletingHabitId(habit.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {!isDemo && (
+                          <>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setEditingHabit(habit)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setDeletingHabitId(habit.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -437,7 +540,7 @@ const ChildDetail = () => {
                 ))}
               </div>
             )}
-            <CreateHabitDialog childId={childId!} onHabitCreated={fetchData} />
+            {!isDemo && <CreateHabitDialog childId={childId!} onHabitCreated={fetchData} />}
           </TabsContent>
 
           <TabsContent value="rewards" className="mt-4">
@@ -462,20 +565,24 @@ const ChildDetail = () => {
                         {!reward.is_active && (
                           <span className="text-xs bg-muted px-2 py-1 rounded">Inactive</span>
                         )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setEditingReward(reward)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setDeletingRewardId(reward.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {!isDemo && (
+                          <>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setEditingReward(reward)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setDeletingRewardId(reward.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -494,7 +601,7 @@ const ChildDetail = () => {
                 ))}
               </div>
             )}
-            <CreateRewardDialog childId={childId!} onRewardCreated={fetchData} />
+            {!isDemo && <CreateRewardDialog childId={childId!} onRewardCreated={fetchData} />}
           </TabsContent>
 
           <TabsContent value="redemptions" className="mt-4">
@@ -573,6 +680,20 @@ const ChildDetail = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Sign up CTA for demo mode */}
+        {isDemo && (
+          <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              onClick={() => navigate("/auth?tab=signup")}
+            >
+              Sign Up to Create Your Own
+            </Button>
+          </div>
+        )}
 
         {/* Edit Habit Dialog */}
         {editingHabit && (
