@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { isSoundEnabled, setSoundEnabled } from "@/lib/sounds";
@@ -43,6 +44,7 @@ const Settings = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTimezone, setIsSavingTimezone] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
 
   useEffect(() => {
@@ -365,6 +367,61 @@ const Settings = () => {
               >
                 Update Password
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Delete Account */}
+          <Card className="shadow-card animate-fade-in-up border-destructive/30" style={{ animationDelay: '0.5s' }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                <Trash2 className="w-5 h-5" />
+                Delete Account
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Permanently delete your account and all associated data including children, habits, and rewards. This action cannot be undone.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                    {isDeleting ? "Deleting..." : "Delete My Account"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete your account, all your children's profiles, habits, progress, rewards, and badges. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={async () => {
+                        setIsDeleting(true);
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session) {
+                          toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+                          setIsDeleting(false);
+                          return;
+                        }
+                        const res = await supabase.functions.invoke("delete-account");
+                        if (res.error || res.data?.error) {
+                          toast({ title: "Error", description: res.data?.error || res.error?.message || "Failed to delete account.", variant: "destructive" });
+                          setIsDeleting(false);
+                        } else {
+                          await supabase.auth.signOut();
+                          navigate("/auth");
+                        }
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Yes, Delete My Account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </div>
