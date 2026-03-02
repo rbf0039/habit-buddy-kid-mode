@@ -9,7 +9,7 @@ import { Sparkles } from "lucide-react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -163,28 +163,9 @@ const Auth = () => {
                     {isLoading ? "Signing In..." : "Sign In"}
                   </Button>
                   <div className="text-center">
-                    <button
-                      type="button"
-                      className="text-sm text-primary hover:text-primary/80 underline"
-                      onClick={async () => {
-                        const emailInput = document.getElementById("email-signin") as HTMLInputElement;
-                        const email = emailInput?.value;
-                        if (!email) {
-                          toast({ title: "Enter your email", description: "Please enter your email address first.", variant: "destructive" });
-                          return;
-                        }
-                        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                          redirectTo: `${window.location.origin}/reset-password`,
-                        });
-                        if (error) {
-                          toast({ title: "Error", description: error.message, variant: "destructive" });
-                        } else {
-                          toast({ title: "Check your email", description: "A password reset link has been sent to your email." });
-                        }
-                      }}
-                    >
+                    <Link to="/forgot-password" className="text-sm text-primary hover:text-primary/80 underline">
                       Forgot Password?
-                    </button>
+                    </Link>
                   </div>
                 </form>
               </TabsContent>
