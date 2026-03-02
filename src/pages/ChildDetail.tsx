@@ -6,6 +6,7 @@ import { ArrowLeft, Target, Coins, Flame, Gift, CheckCircle, Clock, Pencil, Tras
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { playClickSound } from "@/lib/sounds";
 import { CreateHabitDialog } from "@/components/CreateHabitDialog";
 import { CreateRewardDialog } from "@/components/CreateRewardDialog";
 import { EditHabitDialog } from "@/components/EditHabitDialog";
@@ -336,6 +337,7 @@ const ChildDetail = () => {
   };
 
   const handleApproveRedemption = async (redemptionId: string) => {
+    playClickSound();
     if (isDemo) {
       toast({ title: "Demo Mode", description: "Sign up to manage real rewards!" });
       return;
@@ -365,6 +367,7 @@ const ChildDetail = () => {
   };
 
   const handleDenyRedemption = async (redemptionId: string, coinCost: number) => {
+    playClickSound();
     if (isDemo) {
       toast({ title: "Demo Mode", description: "Sign up to manage real rewards!" });
       return;
