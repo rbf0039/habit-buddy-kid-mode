@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import confetti from "canvas-confetti";
+import { playClickSound, playStepCompleteSound, playHabitCompleteSound, playRedeemSound, playApprovalSound } from "@/lib/sounds";
 
 interface Child {
   id: string;
@@ -123,8 +124,9 @@ const ChildMode = () => {
       const unseenApprovals = approvedRedemptions.filter(r => !seenApprovals.has(r.id));
       
       if (unseenApprovals.length > 0) {
-        // Trigger confetti for unseen approvals
+        // Trigger confetti + sound for unseen approvals
         triggerCelebrationConfetti();
+        playApprovalSound();
         
         // Mark all approved as seen
         setSeenApprovals(prev => {
@@ -387,6 +389,7 @@ const ChildMode = () => {
           // Show celebration confetti when approved (only if on my-rewards tab)
           if (payload.new.status === 'approved') {
             triggerCelebrationConfetti();
+            playApprovalSound();
             // Mark this approval as seen immediately since they saw it in real-time
             setSeenApprovals(prev => new Set(prev).add(payload.new.id));
           }
@@ -467,6 +470,7 @@ const ChildMode = () => {
 
       if (coinError) throw coinError;
 
+      playHabitCompleteSound();
       const remaining = habit.times_per_period - habit.completionsToday - 1;
       toast({
         title: "Great job! 🎉",
@@ -531,10 +535,13 @@ const ChildMode = () => {
 
         if (coinError) throw coinError;
 
+        playHabitCompleteSound();
         toast({
           title: "Great job! 🎉",
           description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
         });
+      } else {
+        playStepCompleteSound();
       }
 
       // Refresh data
@@ -584,6 +591,7 @@ const ChildMode = () => {
 
       if (coinError) throw coinError;
 
+      playRedeemSound();
       toast({
         title: "Success! 🎉",
         description: `You redeemed ${reward.name}! Your parent will approve it soon.`,
