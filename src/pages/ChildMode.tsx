@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { CheckCircle2, Circle, Award, Coins, Flame, Gift, Clock, History } from "lucide-react";
+import { CheckCircle2, Circle, Award, Coins, Flame, Gift, Clock, History, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import confetti from "canvas-confetti";
 import { playClickSound, playStepCompleteSound, playHabitCompleteSound, playRedeemSound, playApprovalSound } from "@/lib/sounds";
+import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 
 interface Child {
   id: string;
@@ -66,6 +67,14 @@ interface HabitStep {
   completed: boolean;
 }
 
+interface Badge {
+  id: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+  earned_at: string;
+}
+
 const DAY_MAP: { [key: number]: string } = {
   0: "sun",
   1: "mon",
@@ -91,6 +100,7 @@ const ChildMode = () => {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [seenApprovals, setSeenApprovals] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("habits");
+  const [badges, setBadges] = useState<Badge[]>([]);
 
   // Trigger confetti when switching to "My Rewards" tab and there are unseen approvals
   const triggerCelebrationConfetti = () => {
@@ -350,6 +360,15 @@ const ChildMode = () => {
       setRedemptions(redemptionsData || []);
     }
 
+    // Fetch badges
+    const { data: badgesData } = await supabase
+      .from("badges")
+      .select("*")
+      .eq("child_id", childId)
+      .order("earned_at", { ascending: true });
+
+    setBadges(badgesData || []);
+
     setIsLoading(false);
   };
 
@@ -477,6 +496,15 @@ const ChildMode = () => {
         description: `You earned ${habit.coins_per_completion} coins!${remaining > 0 ? ` (${remaining} more time${remaining !== 1 ? 's' : ''} available today)` : ''}`,
       });
 
+      // Check for new badges
+      const newBadges = await checkAndAwardBadges(child.id);
+      if (newBadges.length > 0) {
+        toast({
+          title: "🏆 New Badge Earned!",
+          description: newBadges.join(", "),
+        });
+      }
+
       // Refresh data
       await fetchChildData();
     } catch (error: unknown) {
@@ -540,6 +568,15 @@ const ChildMode = () => {
           title: "Great job! 🎉",
           description: `You earned ${habit.coins_per_completion} coins for completing ${habit.name}!`,
         });
+
+        // Check for new badges
+        const newBadges = await checkAndAwardBadges(child.id);
+        if (newBadges.length > 0) {
+          toast({
+            title: "🏆 New Badge Earned!",
+            description: newBadges.join(", "),
+          });
+        }
       } else {
         playStepCompleteSound();
       }
@@ -596,6 +633,15 @@ const ChildMode = () => {
         title: "Success! 🎉",
         description: `You redeemed ${reward.name}! Your parent will approve it soon.`,
       });
+
+      // Check for new badges
+      const newBadges = await checkAndAwardBadges(child.id);
+      if (newBadges.length > 0) {
+        toast({
+          title: "🏆 New Badge Earned!",
+          description: newBadges.join(", "),
+        });
+      }
 
       // Refresh data
       await fetchChildData();
@@ -658,10 +704,11 @@ const ChildMode = () => {
 
         {/* Tabs for Habits, Rewards, and My Rewards */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="habits">My Habits</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="habits">Habits</TabsTrigger>
             <TabsTrigger value="rewards">Store</TabsTrigger>
-            <TabsTrigger value="my-rewards">My Rewards</TabsTrigger>
+            <TabsTrigger value="my-rewards">Rewards</TabsTrigger>
+            <TabsTrigger value="badges">Badges</TabsTrigger>
           </TabsList>
 
           <TabsContent value="habits" className="mt-4">
@@ -917,6 +964,39 @@ const ChildMode = () => {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="badges" className="mt-4">
+            <div className="grid grid-cols-2 gap-3">
+              {BADGE_DEFINITIONS.map((def) => {
+                const earned = badges.find((b) => b.name === def.name);
+                return (
+                  <Card
+                    key={def.key}
+                    className={`shadow-card transition-all ${
+                      earned
+                        ? "border-warning/50 bg-warning/5"
+                        : "opacity-40 grayscale"
+                    }`}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <span className="text-4xl block mb-2">{def.icon}</span>
+                      <h3 className="text-sm font-bold text-foreground mb-1">
+                        {def.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {def.description}
+                      </p>
+                      {earned && (
+                        <p className="text-xs text-warning mt-2 font-medium">
+                          Earned {new Date(earned.earned_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </TabsContent>
         </Tabs>
 
