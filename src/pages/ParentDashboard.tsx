@@ -11,7 +11,6 @@ import { PinDialog } from "@/components/PinDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { playClickSound } from "@/lib/sounds";
 
 interface Child {
   id: string;
@@ -149,7 +148,6 @@ const ParentDashboard = () => {
   };
 
   const handleSwitchToChildMode = () => {
-    playClickSound();
     if (!hasPin) {
       setShowPinDialog(true);
     } else {
