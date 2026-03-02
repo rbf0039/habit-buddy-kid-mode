@@ -1,3 +1,13 @@
+const SOUND_ENABLED_KEY = "habitbuddy-sound-enabled";
+
+export function isSoundEnabled(): boolean {
+  return localStorage.getItem(SOUND_ENABLED_KEY) !== "false";
+}
+
+export function setSoundEnabled(enabled: boolean) {
+  localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+}
+
 let audioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
@@ -11,6 +21,7 @@ function getAudioContext(): AudioContext {
 }
 
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine", volume = 0.3) {
+  if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -34,6 +45,7 @@ export function playStepCompleteSound() {
 }
 
 export function playHabitCompleteSound() {
+  if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6
   notes.forEach((freq, i) => {
@@ -53,6 +65,7 @@ export function playHabitCompleteSound() {
 }
 
 export function playRedeemSound() {
+  if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   // Coin-like "cha-ching"
   [1200, 1500, 1800].forEach((freq, i) => {
@@ -71,6 +84,7 @@ export function playRedeemSound() {
 }
 
 export function playApprovalSound() {
+  if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   // Triumphant fanfare: G4 B4 D5 G5
   const notes = [392, 494, 587, 784];

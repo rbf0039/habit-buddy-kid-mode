@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Mail, Lock, Globe, Moon, Sun } from "lucide-react";
+import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { isSoundEnabled, setSoundEnabled } from "@/lib/sounds";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -42,6 +43,7 @@ const Settings = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTimezone, setIsSavingTimezone] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -238,7 +240,7 @@ const Settings = () => {
                 Appearance
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-foreground">Dark Mode</p>
@@ -247,6 +249,22 @@ const Settings = () => {
                 <Switch
                   checked={theme === "dark"}
                   onCheckedChange={toggleTheme}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {soundOn ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+                  <div>
+                    <p className="font-medium text-foreground">Sound Effects</p>
+                    <p className="text-sm text-muted-foreground">Play sounds on actions</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={soundOn}
+                  onCheckedChange={(checked) => {
+                    setSoundOn(checked);
+                    setSoundEnabled(checked);
+                  }}
                 />
               </div>
             </CardContent>
