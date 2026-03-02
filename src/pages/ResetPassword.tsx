@@ -12,25 +12,47 @@ const ResetPassword = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecovery, setIsRecovery] = useState(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Listen for the PASSWORD_RECOVERY event
+    // Check for errors in the URL hash first
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const error = params.get("error");
+    const errorDescription = params.get("error_description");
+
+    if (error) {
+      setStatus("error");
+      setErrorMessage(errorDescription?.replace(/\+/g, " ") || "The reset link is invalid or has expired.");
+      return;
+    }
+
+    // Listen for the PASSWORD_RECOVERY event from Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
-        setIsRecovery(true);
+        setStatus("ready");
       }
     });
 
-    // Also check if the URL hash contains recovery type
-    const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setIsRecovery(true);
-    }
+    // If tokens are present in hash, Supabase client will auto-process them
+    // and fire PASSWORD_RECOVERY. Give it a moment, then check session.
+    const timeout = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setStatus("ready");
+      } else if (status === "loading") {
+        setStatus("error");
+        setErrorMessage("The reset link is invalid or has expired. Please request a new one.");
+      }
+    }, 3000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -58,11 +80,38 @@ const ResetPassword = () => {
     setIsLoading(false);
   };
 
-  if (!isRecovery) {
+  if (status === "error") {
+    return (
+      <div className="min-h-screen bg-gradient-child flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <Sparkles className="w-8 h-8 text-primary mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-foreground">HabitBuddy</h1>
+          </div>
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle>Link Expired</CardTitle>
+              <CardDescription>{errorMessage}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button variant="default" className="w-full" onClick={() => navigate("/forgot-password")}>
+                Request a New Reset Link
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
+                Back to Sign In
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "loading") {
     return (
       <div className="min-h-screen bg-gradient-child flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md text-center">
-          <Sparkles className="w-8 h-8 text-primary mx-auto mb-4" />
+          <Sparkles className="w-8 h-8 text-primary mx-auto mb-4 animate-bounce-gentle" />
           <p className="text-muted-foreground">Verifying your reset link...</p>
         </div>
       </div>
