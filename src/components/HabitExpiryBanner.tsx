@@ -26,7 +26,7 @@ export const HabitExpiryBanner = ({ userId, children, forceShow = false }: Habit
     checkExpiringHabits();
     const interval = setInterval(checkExpiringHabits, 60000);
     return () => clearInterval(interval);
-  }, [userId, children]);
+  }, [userId, children, forceShow]);
 
   const checkExpiringHabits = async () => {
     // Get parent timezone
