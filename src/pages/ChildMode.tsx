@@ -574,6 +574,11 @@ const ChildMode = () => {
         newCanComplete = false;
       }
 
+      // If fully completed, show countdown to midnight reset
+      if (!newCanComplete && newCompletionsToday >= habit.times_per_period) {
+        newNextAvailableAt = getNextMidnightInTimezone(parentTimezone);
+      }
+
       setChild(prev => prev ? { ...prev, coin_balance: prev.coin_balance + habit.coins_per_completion } : prev);
       setHabits(prevHabits => prevHabits.map(h =>
         h.id === habitId
