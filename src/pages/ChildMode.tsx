@@ -678,6 +678,14 @@ const ChildMode = () => {
       }));
 
       if (isNowFullyCompleted) {
+        // Insert a habit-level completion record (step_id = null) so badge counting works
+        await supabase.from("habit_progress").insert({
+          habit_id: habitId,
+          child_id: child.id,
+          date: today,
+          step_id: null,
+        });
+
         // Award coins
         const { error: coinError } = await supabase
           .from("children")
