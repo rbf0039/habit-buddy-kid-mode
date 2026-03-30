@@ -186,16 +186,17 @@ const ChildMode = () => {
     const msLeft = nextAvailableAt.getTime() - currentTime;
     if (msLeft <= 0) return null;
     
-    const totalMinutes = Math.ceil(msLeft / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
+    const totalSeconds = Math.ceil(msLeft / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
     
-    if (hours > 0 && minutes > 0) {
-      return `Complete again in ${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-    } else if (hours > 0) {
-      return `Complete again in ${hours} hour${hours !== 1 ? 's' : ''}`;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    
+    if (hours > 0) {
+      return `Complete again in ${hours}:${pad(minutes)}:${pad(seconds)}`;
     }
-    return `Complete again in ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    return `Complete again in ${minutes}:${pad(seconds)}`;
   }, [currentTime]);
 
   useEffect(() => {
