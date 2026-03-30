@@ -257,6 +257,16 @@ const ChildMode = () => {
       setIsLoading(true);
     }
 
+    // Fetch parent's timezone
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("timezone")
+      .eq("id", user.id)
+      .single();
+    
+    const timezone = profileData?.timezone || "America/New_York";
+    setParentTimezone(timezone);
+
     // Fetch child data
     const { data: childData, error: childError } = await supabase
       .from("children")
@@ -363,6 +373,11 @@ const ChildMode = () => {
             canComplete = false;
             nextAvailableAt = cooldownEnds;
           }
+        }
+
+        // If fully completed for the period, show countdown to midnight reset
+        if (!canComplete && completionsToday >= timesPerPeriod && isScheduledToday) {
+          nextAvailableAt = getNextMidnightInTimezone(timezone);
         }
 
         return {
