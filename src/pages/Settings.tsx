@@ -330,7 +330,46 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* Change Email */}
+          {/* Notification Settings */}
+          <Card className="shadow-card animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Habit Reminders
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Show a warning banner on your dashboard when habits haven't been completed
+              </p>
+              <div className="space-y-2">
+                <Label>Start showing warnings at</Label>
+                <Select value={String(notificationHour)} onValueChange={handleNotificationHourChange} disabled={isSavingNotification}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 13 }, (_, i) => i + 12).map((hour) => (
+                      <SelectItem key={hour} value={String(hour)}>
+                        {hour === 12 ? "12:00 PM" : hour <= 12 ? `${hour}:00 AM` : `${hour - 12}:00 PM`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  navigate("/dashboard?testBanner=true");
+                }}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview Notification Banner
+              </Button>
+            </CardContent>
+          </Card>
           <Card className="shadow-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
