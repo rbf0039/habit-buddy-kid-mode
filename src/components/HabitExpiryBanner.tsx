@@ -14,6 +14,7 @@ interface ExpiringHabit {
 interface HabitExpiryBannerProps {
   userId: string;
   children: { id: string; name: string }[];
+  forceShow?: boolean;
 }
 
 export const HabitExpiryBanner = ({ userId, children }: HabitExpiryBannerProps) => {
