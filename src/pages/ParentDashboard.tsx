@@ -8,6 +8,7 @@ import { Settings, Users, LogOut, Smartphone, Pencil, Bell, ArrowLeft } from "lu
 import { AddChildDialog } from "@/components/AddChildDialog";
 import { EditChildDialog } from "@/components/EditChildDialog";
 import { PinDialog } from "@/components/PinDialog";
+import { HabitExpiryBanner } from "@/components/HabitExpiryBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -215,6 +216,11 @@ const ParentDashboard = () => {
           </div>
         </div>
 
+
+        {/* Expiring Habits Banner */}
+        {!isDemo && user && children.length > 0 && (
+          <HabitExpiryBanner userId={user.id} children={children} />
+        )}
 
         {/* Children List */}
         <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
