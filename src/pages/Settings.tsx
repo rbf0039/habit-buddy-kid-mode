@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX, Trash2, Bell, Eye } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { isSoundEnabled, setSoundEnabled } from "@/lib/sounds";
@@ -38,12 +38,14 @@ const Settings = () => {
   const { toast } = useToast();
 
   const [timezone, setTimezone] = useState("America/New_York");
+  const [notificationHour, setNotificationHour] = useState(18);
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTimezone, setIsSavingTimezone] = useState(false);
+  const [isSavingNotification, setIsSavingNotification] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
 
@@ -59,12 +61,15 @@ const Settings = () => {
 
       const { data } = await supabase
         .from("profiles")
-        .select("timezone")
+        .select("timezone, notification_hour")
         .eq("id", user.id)
         .single();
 
       if (data?.timezone) {
         setTimezone(data.timezone);
+      }
+      if (data?.notification_hour !== undefined && data?.notification_hour !== null) {
+        setNotificationHour(data.notification_hour);
       }
     };
 
@@ -92,6 +97,32 @@ const Settings = () => {
       toast({
         title: "Success",
         description: "Timezone updated successfully.",
+      });
+    }
+  };
+
+  const handleNotificationHourChange = async (value: string) => {
+    const hour = parseInt(value, 10);
+    setNotificationHour(hour);
+    setIsSavingNotification(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ notification_hour: hour })
+      .eq("id", user!.id);
+
+    setIsSavingNotification(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save notification time.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Notification time updated.",
       });
     }
   };
@@ -299,7 +330,46 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* Change Email */}
+          {/* Notification Settings */}
+          <Card className="shadow-card animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Habit Reminders
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Show a warning banner on your dashboard when habits haven't been completed
+              </p>
+              <div className="space-y-2">
+                <Label>Start showing warnings at</Label>
+                <Select value={String(notificationHour)} onValueChange={handleNotificationHourChange} disabled={isSavingNotification}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 13 }, (_, i) => i + 12).map((hour) => (
+                      <SelectItem key={hour} value={String(hour)}>
+                        {hour === 12 ? "12:00 PM" : hour <= 12 ? `${hour}:00 AM` : `${hour - 12}:00 PM`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  navigate("/dashboard?testBanner=true");
+                }}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview Notification Banner
+              </Button>
+            </CardContent>
+          </Card>
           <Card className="shadow-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">

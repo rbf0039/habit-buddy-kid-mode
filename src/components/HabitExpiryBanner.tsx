@@ -14,9 +14,10 @@ interface ExpiringHabit {
 interface HabitExpiryBannerProps {
   userId: string;
   children: { id: string; name: string }[];
+  forceShow?: boolean;
 }
 
-export const HabitExpiryBanner = ({ userId, children }: HabitExpiryBannerProps) => {
+export const HabitExpiryBanner = ({ userId, children, forceShow = false }: HabitExpiryBannerProps) => {
   const [expiringHabits, setExpiringHabits] = useState<ExpiringHabit[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -25,17 +26,18 @@ export const HabitExpiryBanner = ({ userId, children }: HabitExpiryBannerProps) 
     checkExpiringHabits();
     const interval = setInterval(checkExpiringHabits, 60000);
     return () => clearInterval(interval);
-  }, [userId, children]);
+  }, [userId, children, forceShow]);
 
   const checkExpiringHabits = async () => {
     // Get parent timezone
     const { data: profile } = await supabase
       .from("profiles")
-      .select("timezone")
+      .select("timezone, notification_hour")
       .eq("id", userId)
       .single();
 
     const timezone = profile?.timezone || "America/New_York";
+    const notificationHour = profile?.notification_hour ?? 18;
     const now = new Date();
 
     // Get current time in parent's timezone
@@ -46,8 +48,8 @@ export const HabitExpiryBanner = ({ userId, children }: HabitExpiryBannerProps) 
     });
     const currentHour = parseInt(formatter.format(now), 10);
 
-    // Only show warnings in the evening (after 6 PM)
-    if (currentHour < 18) {
+    // Only show warnings after the configured hour (unless force showing)
+    if (!forceShow && currentHour < notificationHour) {
       setExpiringHabits([]);
       return;
     }
