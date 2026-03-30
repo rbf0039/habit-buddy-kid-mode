@@ -34,8 +34,9 @@ const DEMO_PENDING: PendingCounts = { "demo-1": 2 };
 
 const ParentDashboard = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
+  const testBanner = searchParams.get("testBanner") === "true";
   const { user, signOut, loading, setChildMode, hasPin, createPin } = useAuth();
   const { toast } = useToast();
   const [children, setChildren] = useState<Child[]>([]);
