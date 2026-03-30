@@ -61,12 +61,15 @@ const Settings = () => {
 
       const { data } = await supabase
         .from("profiles")
-        .select("timezone")
+        .select("timezone, notification_hour")
         .eq("id", user.id)
         .single();
 
       if (data?.timezone) {
         setTimezone(data.timezone);
+      }
+      if (data?.notification_hour !== undefined && data?.notification_hour !== null) {
+        setNotificationHour(data.notification_hour);
       }
     };
 
