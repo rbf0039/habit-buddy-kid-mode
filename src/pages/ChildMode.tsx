@@ -163,16 +163,18 @@ const ChildMode = () => {
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
       
-      // Check if any cooldowns have expired and refresh data
-      const expiredCooldowns = habits.filter(h => 
-        h.nextAvailableAt && 
-        h.nextAvailableAt.getTime() <= Date.now() && 
-        !h.canComplete
-      );
-      
-      if (expiredCooldowns.length > 0) {
-        fetchChildData();
-      }
+      // Check if any cooldowns have expired and update canComplete optimistically
+      setHabits(prevHabits => {
+        let changed = false;
+        const updated = prevHabits.map(h => {
+          if (h.nextAvailableAt && h.nextAvailableAt.getTime() <= Date.now() && !h.canComplete) {
+            changed = true;
+            return { ...h, canComplete: h.completionsToday < h.times_per_period, nextAvailableAt: null };
+          }
+          return h;
+        });
+        return changed ? updated : prevHabits;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
@@ -202,10 +204,14 @@ const ChildMode = () => {
     }
   }, [user, loading, navigate]);
 
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
   const fetchChildData = async () => {
     if (!childId || !user) return;
 
-    setIsLoading(true);
+    if (!initialLoadDone) {
+      setIsLoading(true);
+    }
 
     // Fetch child data
     const { data: childData, error: childError } = await supabase
@@ -370,6 +376,7 @@ const ChildMode = () => {
     setBadges(badgesData || []);
 
     setIsLoading(false);
+    setInitialLoadDone(true);
   };
 
   useEffect(() => {
@@ -496,6 +503,31 @@ const ChildMode = () => {
         description: `You earned ${habit.coins_per_completion} coins!${remaining > 0 ? ` (${remaining} more time${remaining !== 1 ? 's' : ''} available today)` : ''}`,
       });
 
+      // Optimistically update local state
+      const now = new Date();
+      const newCompletionsToday = habit.completionsToday + 1;
+      const cooldownMinutes = habit.cooldown_minutes || 0;
+      let newNextAvailableAt: Date | null = null;
+      let newCanComplete = newCompletionsToday < habit.times_per_period;
+
+      if (newCanComplete && habit.times_per_period > 1 && cooldownMinutes > 0) {
+        newNextAvailableAt = new Date(now.getTime() + cooldownMinutes * 60 * 1000);
+        newCanComplete = false;
+      }
+
+      setChild(prev => prev ? { ...prev, coin_balance: prev.coin_balance + habit.coins_per_completion } : prev);
+      setHabits(prevHabits => prevHabits.map(h =>
+        h.id === habitId
+          ? {
+              ...h,
+              completionsToday: newCompletionsToday,
+              lastCompletedAt: now,
+              canComplete: newCanComplete,
+              nextAvailableAt: newNextAvailableAt,
+            }
+          : h
+      ));
+
       // Check for new badges
       const newBadges = await checkAndAwardBadges(child.id);
       if (newBadges.length > 0) {
@@ -503,10 +535,18 @@ const ChildMode = () => {
           title: "🏆 New Badge Earned!",
           description: newBadges.join(", "),
         });
+        // Optimistically add badges
+        const newBadgeObjects = BADGE_DEFINITIONS
+          .filter(bd => newBadges.includes(bd.name))
+          .map(bd => ({
+            id: crypto.randomUUID(),
+            name: bd.name,
+            description: bd.description,
+            icon_url: bd.icon,
+            earned_at: now.toISOString(),
+          }));
+        setBadges(prev => [...prev, ...newBadgeObjects]);
       }
-
-      // Refresh data
-      await fetchChildData();
     } catch (error: unknown) {
       console.error("Error completing habit:", error);
       // Parse server-side validation errors
@@ -554,6 +594,24 @@ const ChildMode = () => {
       const newCompletedSteps = habit.completedSteps + 1;
       const isNowFullyCompleted = newCompletedSteps === habit.steps.length;
 
+      // Optimistically update the step
+      setHabits(prevHabits => prevHabits.map(h => {
+        if (h.id !== habitId) return h;
+        const updatedSteps = h.steps.map(s =>
+          s.id === stepId ? { ...s, completed: true } : s
+        );
+        const updatedCompletedSteps = h.completedSteps + 1;
+        const allDone = updatedCompletedSteps === h.steps.length;
+        return {
+          ...h,
+          steps: updatedSteps,
+          completedSteps: updatedCompletedSteps,
+          completionsToday: allDone ? 1 : h.completionsToday,
+          canComplete: allDone ? false : h.canComplete,
+          lastCompletedAt: allDone ? new Date() : h.lastCompletedAt,
+        };
+      }));
+
       if (isNowFullyCompleted) {
         // Award coins
         const { error: coinError } = await supabase
@@ -562,6 +620,8 @@ const ChildMode = () => {
           .eq("id", child.id);
 
         if (coinError) throw coinError;
+
+        setChild(prev => prev ? { ...prev, coin_balance: prev.coin_balance + habit.coins_per_completion } : prev);
 
         playHabitCompleteSound();
         toast({
@@ -576,13 +636,21 @@ const ChildMode = () => {
             title: "🏆 New Badge Earned!",
             description: newBadges.join(", "),
           });
+          const now = new Date();
+          const newBadgeObjects = BADGE_DEFINITIONS
+            .filter(bd => newBadges.includes(bd.name))
+            .map(bd => ({
+              id: crypto.randomUUID(),
+              name: bd.name,
+              description: bd.description,
+              icon_url: bd.icon,
+              earned_at: now.toISOString(),
+            }));
+          setBadges(prev => [...prev, ...newBadgeObjects]);
         }
       } else {
         playStepCompleteSound();
       }
-
-      // Refresh data
-      await fetchChildData();
     } catch (error) {
       console.error("Error completing step:", error);
       toast({
@@ -628,6 +696,16 @@ const ChildMode = () => {
 
       if (coinError) throw coinError;
 
+      // Optimistically update local state
+      setChild(prev => prev ? { ...prev, coin_balance: prev.coin_balance - reward.coin_cost } : prev);
+      setRedemptions(prev => [{
+        id: crypto.randomUUID(),
+        reward_id: reward.id,
+        redeemed_at: new Date().toISOString(),
+        status: "pending",
+        reward: reward,
+      }, ...prev]);
+
       playRedeemSound();
       toast({
         title: "Success! 🎉",
@@ -641,10 +719,18 @@ const ChildMode = () => {
           title: "🏆 New Badge Earned!",
           description: newBadges.join(", "),
         });
+        const now = new Date();
+        const newBadgeObjects = BADGE_DEFINITIONS
+          .filter(bd => newBadges.includes(bd.name))
+          .map(bd => ({
+            id: crypto.randomUUID(),
+            name: bd.name,
+            description: bd.description,
+            icon_url: bd.icon,
+            earned_at: now.toISOString(),
+          }));
+        setBadges(prev => [...prev, ...newBadgeObjects]);
       }
-
-      // Refresh data
-      await fetchChildData();
     } catch (error) {
       console.error("Error redeeming reward:", error);
       toast({
@@ -652,6 +738,7 @@ const ChildMode = () => {
         description: "Failed to redeem reward. Please try again.",
         variant: "destructive",
       });
+      await fetchChildData();
     }
   };
 
