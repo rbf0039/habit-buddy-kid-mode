@@ -984,9 +984,9 @@ const ChildMode = () => {
                               : !habit.isScheduledToday 
                                 ? "Not Scheduled Today"
                                 : isFullyCompletedForPeriod 
-                                  ? `Completed ${habit.times_per_period}x Today!` 
+                                  ? "✅ Done for today!" 
                                   : cooldownDisplay 
-                                    ? `Wait ${cooldownDisplay}`
+                                    ? "⏳ Cooldown active"
                                     : "Mark as Complete"}
                           </Button>
                         )}
