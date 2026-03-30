@@ -101,6 +101,46 @@ const ChildMode = () => {
   const [seenApprovals, setSeenApprovals] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("habits");
   const [badges, setBadges] = useState<Badge[]>([]);
+  const [parentTimezone, setParentTimezone] = useState<string>("America/New_York");
+
+  // Helper to calculate next midnight in the parent's timezone
+  const getNextMidnightInTimezone = useCallback((timezone: string): Date => {
+    // Get current time formatted in the parent's timezone
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '0';
+    
+    // Build a date string in the timezone, then add one day and set to midnight
+    const tzYear = parseInt(get('year'));
+    const tzMonth = parseInt(get('month')) - 1;
+    const tzDay = parseInt(get('day'));
+    
+    // Create "tomorrow midnight" in the parent's timezone
+    // We do this by creating a date for "today midnight" + 1 day in that timezone
+    const todayMidnightStr = `${tzYear}-${String(tzMonth + 1).padStart(2, '0')}-${String(tzDay).padStart(2, '0')}T00:00:00`;
+    
+    // Calculate offset: difference between UTC and timezone
+    const tempDate = new Date(todayMidnightStr + 'Z');
+    const utcStr = tempDate.toLocaleString('en-US', { timeZone: 'UTC' });
+    const tzStr = tempDate.toLocaleString('en-US', { timeZone: timezone });
+    const utcDate = new Date(utcStr);
+    const tzDate = new Date(tzStr);
+    const offsetMs = utcDate.getTime() - tzDate.getTime();
+    
+    // Tomorrow midnight in parent timezone, converted to UTC
+    const tomorrowMidnightLocal = new Date(tzYear, tzMonth, tzDay + 1, 0, 0, 0, 0);
+    return new Date(tomorrowMidnightLocal.getTime() + offsetMs);
+  }, []);
 
   // Trigger confetti when switching to "My Rewards" tab and there are unseen approvals
   const triggerCelebrationConfetti = () => {
@@ -156,9 +196,9 @@ const ChildMode = () => {
 
   // Real-time countdown timer - updates every second
   useEffect(() => {
-    const hasActiveCooldowns = habits.some(h => h.nextAvailableAt && h.nextAvailableAt.getTime() > Date.now());
+    const hasActiveTimers = habits.some(h => h.nextAvailableAt && h.nextAvailableAt.getTime() > Date.now());
     
-    if (!hasActiveCooldowns) return;
+    if (!hasActiveTimers) return;
 
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
@@ -181,9 +221,9 @@ const ChildMode = () => {
   }, [habits]);
 
   // Format countdown time for display
-  const formatCooldownTime = useCallback((nextAvailableAt: Date | null) => {
-    if (!nextAvailableAt) return null;
-    const msLeft = nextAvailableAt.getTime() - currentTime;
+  const formatCooldownTime = useCallback((habit: HabitWithSteps) => {
+    if (!habit.nextAvailableAt) return null;
+    const msLeft = habit.nextAvailableAt.getTime() - currentTime;
     if (msLeft <= 0) return null;
     
     const totalSeconds = Math.ceil(msLeft / 1000);
@@ -193,10 +233,13 @@ const ChildMode = () => {
     
     const pad = (n: number) => n.toString().padStart(2, '0');
     
+    const isFullyDone = habit.completionsToday >= habit.times_per_period;
+    const label = isFullyDone ? "Resets in" : "Complete again in";
+    
     if (hours > 0) {
-      return `Complete again in ${hours}:${pad(minutes)}:${pad(seconds)}`;
+      return `${label} ${hours}:${pad(minutes)}:${pad(seconds)}`;
     }
-    return `Complete again in ${minutes}:${pad(seconds)}`;
+    return `${label} ${minutes}:${pad(seconds)}`;
   }, [currentTime]);
 
   useEffect(() => {
@@ -213,6 +256,16 @@ const ChildMode = () => {
     if (!initialLoadDone) {
       setIsLoading(true);
     }
+
+    // Fetch parent's timezone
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("timezone")
+      .eq("id", user.id)
+      .single();
+    
+    const timezone = profileData?.timezone || "America/New_York";
+    setParentTimezone(timezone);
 
     // Fetch child data
     const { data: childData, error: childError } = await supabase
@@ -320,6 +373,11 @@ const ChildMode = () => {
             canComplete = false;
             nextAvailableAt = cooldownEnds;
           }
+        }
+
+        // If fully completed for the period, show countdown to midnight reset
+        if (!canComplete && completionsToday >= timesPerPeriod && isScheduledToday) {
+          nextAvailableAt = getNextMidnightInTimezone(timezone);
         }
 
         return {
@@ -516,6 +574,11 @@ const ChildMode = () => {
         newCanComplete = false;
       }
 
+      // If fully completed, show countdown to midnight reset
+      if (!newCanComplete && newCompletionsToday >= habit.times_per_period) {
+        newNextAvailableAt = getNextMidnightInTimezone(parentTimezone);
+      }
+
       setChild(prev => prev ? { ...prev, coin_balance: prev.coin_balance + habit.coins_per_completion } : prev);
       setHabits(prevHabits => prevHabits.map(h =>
         h.id === habitId
@@ -610,6 +673,7 @@ const ChildMode = () => {
           completionsToday: allDone ? 1 : h.completionsToday,
           canComplete: allDone ? false : h.canComplete,
           lastCompletedAt: allDone ? new Date() : h.lastCompletedAt,
+          nextAvailableAt: allDone ? getNextMidnightInTimezone(parentTimezone) : h.nextAvailableAt,
         };
       }));
 
@@ -821,7 +885,7 @@ const ChildMode = () => {
                   const isFullyCompleted = hasSteps ? progress === 100 : isFullyCompletedForPeriod;
 
                   // Use the real-time countdown formatter
-                  const cooldownDisplay = formatCooldownTime(habit.nextAvailableAt);
+                  const cooldownDisplay = formatCooldownTime(habit);
 
                   return (
                     <Card
@@ -920,9 +984,9 @@ const ChildMode = () => {
                               : !habit.isScheduledToday 
                                 ? "Not Scheduled Today"
                                 : isFullyCompletedForPeriod 
-                                  ? `Completed ${habit.times_per_period}x Today!` 
+                                  ? "✅ Done for today!" 
                                   : cooldownDisplay 
-                                    ? `Wait ${cooldownDisplay}`
+                                    ? "⏳ Cooldown active"
                                     : "Mark as Complete"}
                           </Button>
                         )}
