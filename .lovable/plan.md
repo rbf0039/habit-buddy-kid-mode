@@ -1,36 +1,33 @@
 
 
-## Plan: Add Sound Effects to HabitBuddy
+## Plan: Optimistic UI Updates for Habit Completion (No Page Reload)
 
-### Approach
+### Problem
+Every time a child completes a habit or step, `fetchChildData()` is called, which sets `isLoading(true)` and re-fetches **all** data (child, habits, rewards, redemptions, badges), causing a visible loading flash.
 
-Create a lightweight sound utility module that generates short sound effects using the Web Audio API (no external dependencies or API keys needed). This keeps things instant, offline-compatible (PWA), and free.
+### Solution
+Replace the `fetchChildData()` calls after habit/step completion with **optimistic local state updates** — update the React state directly with the expected new values instead of refetching everything from the database.
 
-### What Gets Built
+### Changes (single file: `src/pages/ChildMode.tsx`)
 
-**1. Sound utility module (`src/lib/sounds.ts`)**
-- A collection of functions that synthesize short sounds using the Web Audio API (oscillators + gain envelopes)
-- Sound types:
-  - `playClickSound()` — short subtle click/pop for button interactions
-  - `playHabitCompleteSound()` — cheerful ascending tone sequence for habit completion
-  - `playRedeemSound()` — coin/cash-register style sound for reward redemption
-  - `playApprovalSound()` — triumphant fanfare for approved rewards
-  - `playStepCompleteSound()` — soft tick for completing a habit step
+1. **`handleCompleteHabitWithoutSteps`** (around line 508-509):
+   - Remove `await fetchChildData()`
+   - After successful insert + coin update, optimistically update:
+     - `child.coin_balance` += coins earned
+     - The habit's `completionsToday` += 1, `canComplete` recalculated, `lastCompletedAt` set to now, `nextAvailableAt` calculated if cooldown applies
+   - If badges were awarded, append them to `badges` state
 
-**2. Child Mode (`src/pages/ChildMode.tsx`)**
-- `handleCompleteHabitWithoutSteps` — play `playHabitCompleteSound()` on successful completion
-- `handleStepComplete` — play `playStepCompleteSound()` per step; play `playHabitCompleteSound()` when all steps done
-- `handleRedeemReward` — play `playRedeemSound()` on successful redemption
-- Real-time approval subscription — play `playApprovalSound()` when a reward is approved
-- Tab switching / main button clicks — play `playClickSound()`
+2. **`handleStepComplete`** (around line 584-585):
+   - Remove `await fetchChildData()`
+   - After successful step insert, optimistically update:
+     - The step's `completed` flag to `true`, `completedSteps` += 1
+     - If all steps now completed: update `child.coin_balance`, habit's `completionsToday`, `canComplete`, etc.
+   - If badges were awarded, append them to `badges` state
 
-**3. Parent Dashboard & Child Detail (`src/pages/ParentDashboard.tsx`, `src/pages/ChildDetail.tsx`)**
-- Add `playClickSound()` on key button interactions (add child, approve/deny reward, navigation)
+3. **`handleRedeemReward`** (if it also calls `fetchChildData`):
+   - Apply the same pattern: update `child.coin_balance` and `redemptions` state locally
 
-### Technical Details
+4. **Error handling**: Keep the `fetchChildData()` call in `catch` blocks to restore accurate state on failure.
 
-- **Web Audio API** — no network requests, works offline, ~50 lines of code
-- Each sound function creates a short-lived `OscillatorNode` with a `GainNode` envelope, auto-disconnects after playing
-- Sounds are non-blocking (fire-and-forget)
-- A `AudioContext` singleton is lazily initialized on first user interaction (browser autoplay policy compliance)
+5. **`fetchChildData`**: Remove `setIsLoading(true)` for subsequent calls (only show loading on initial mount), or better yet, the optimistic updates eliminate the need to call it after actions entirely.
 
