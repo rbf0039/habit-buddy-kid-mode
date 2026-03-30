@@ -73,7 +73,7 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
 
     const fileExt = file.name.split(".").pop();
     const fileName = `${child.id}-${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const filePath = `${user?.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("child-avatars")
@@ -89,11 +89,11 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
       return;
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signedUrlData } = await supabase.storage
       .from("child-avatars")
-      .getPublicUrl(filePath);
+      .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
 
-    setAvatarUrl(publicUrl);
+    setAvatarUrl(signedUrlData?.signedUrl || null);
     setIsUploading(false);
   };
 

@@ -65,13 +65,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const checkUserPin = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("pin")
-      .eq("id", userId)
-      .single();
-    
-    setHasPin(!!data?.pin);
+    const { data } = await supabase.rpc("has_user_pin");
+    setHasPin(!!data);
   };
 
   const setChildMode = (enabled: boolean) => {
@@ -125,10 +120,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const createPin = async (pin: string) => {
     if (!user) return { error: "No user logged in" };
     
-    const { error } = await supabase
-      .from("profiles")
-      .update({ pin })
-      .eq("id", user.id);
+    const { error } = await supabase.rpc("set_user_pin", { new_pin: pin });
     
     if (!error) {
       setHasPin(true);
@@ -140,13 +132,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const verifyPin = async (pin: string) => {
     if (!user) return false;
     
-    const { data } = await supabase
-      .from("profiles")
-      .select("pin")
-      .eq("id", user.id)
-      .single();
+    const { data } = await supabase.rpc("verify_user_pin", { entered_pin: pin });
     
-    return data?.pin === pin;
+    return !!data;
   };
 
   return (
