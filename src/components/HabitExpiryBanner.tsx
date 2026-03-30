@@ -17,7 +17,7 @@ interface HabitExpiryBannerProps {
   forceShow?: boolean;
 }
 
-export const HabitExpiryBanner = ({ userId, children }: HabitExpiryBannerProps) => {
+export const HabitExpiryBanner = ({ userId, children, forceShow = false }: HabitExpiryBannerProps) => {
   const [expiringHabits, setExpiringHabits] = useState<ExpiringHabit[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
