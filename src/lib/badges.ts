@@ -92,67 +92,84 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
  * Returns the list of newly awarded badge names.
  */
 export async function checkAndAwardBadges(childId: string): Promise<string[]> {
-  // Fetch existing badges for this child
-  const { data: existingBadges } = await supabase
-    .from("badges")
-    .select("name")
-    .eq("child_id", childId);
+  try {
+    // Fetch existing badges for this child
+    const { data: existingBadges, error: badgesError } = await supabase
+      .from("badges")
+      .select("name")
+      .eq("child_id", childId);
 
-  const earnedNames = new Set((existingBadges || []).map((b) => b.name));
-
-  // Fetch stats
-  const [progressResult, childResult, redemptionsResult] = await Promise.all([
-    supabase
-      .from("habit_progress")
-      .select("id", { count: "exact", head: true })
-      .eq("child_id", childId)
-      .is("step_id", null),
-    supabase
-      .from("children")
-      .select("current_streak")
-      .eq("id", childId)
-      .single(),
-    supabase
-      .from("reward_redemptions")
-      .select("id", { count: "exact", head: true })
-      .eq("child_id", childId),
-  ]);
-
-  // Also count step-based habit completions (all steps done = 1 completion)
-  // For simplicity, we use habit_progress rows with step_id IS NULL as direct completions
-  // plus count distinct (habit_id, date) combos where all steps were completed
-  // Actually let's just count all distinct (habit_id, date) from habit_progress as a proxy
-  const { count: distinctCompletions } = await supabase
-    .from("habit_progress")
-    .select("id", { count: "exact", head: true })
-    .eq("child_id", childId)
-    .is("step_id", null);
-
-  const stats: BadgeStats = {
-    totalHabitsCompleted: distinctCompletions || progressResult.count || 0,
-    currentStreak: childResult.data?.current_streak || 0,
-    totalRewardsRedeemed: redemptionsResult.count || 0,
-  };
-
-  // Check which new badges are earned
-  const newBadges: string[] = [];
-
-  for (const badge of BADGE_DEFINITIONS) {
-    if (earnedNames.has(badge.name)) continue;
-    if (!badge.check(stats)) continue;
-
-    // Award the badge
-    const { error } = await supabase.from("badges").insert({
-      child_id: childId,
-      name: badge.name,
-      description: badge.description,
-      icon_url: badge.icon,
-    });
-
-    if (!error) {
-      newBadges.push(badge.name);
+    if (badgesError) {
+      console.error("Failed to fetch existing badges:", badgesError);
+      return [];
     }
-  }
 
-  return newBadges;
+    const earnedNames = new Set((existingBadges || []).map((b) => b.name));
+
+    // Fetch stats - count ALL habit_progress rows for this child (both direct and step-based completions)
+    const [progressResult, childResult, redemptionsResult] = await Promise.all([
+      supabase
+        .from("habit_progress")
+        .select("*", { count: "exact", head: true })
+        .eq("child_id", childId)
+        .is("step_id", null),
+      supabase
+        .from("children")
+        .select("current_streak")
+        .eq("id", childId)
+        .single(),
+      supabase
+        .from("reward_redemptions")
+        .select("*", { count: "exact", head: true })
+        .eq("child_id", childId),
+    ]);
+
+    if (progressResult.error) {
+      console.error("Failed to fetch habit progress count:", progressResult.error);
+    }
+    if (childResult.error) {
+      console.error("Failed to fetch child streak:", childResult.error);
+    }
+    if (redemptionsResult.error) {
+      console.error("Failed to fetch redemptions count:", redemptionsResult.error);
+    }
+
+    const totalCompleted = progressResult.count ?? 0;
+
+    const stats: BadgeStats = {
+      totalHabitsCompleted: totalCompleted,
+      currentStreak: childResult.data?.current_streak ?? 0,
+      totalRewardsRedeemed: redemptionsResult.count ?? 0,
+    };
+
+    console.log("Badge check stats:", stats, "Already earned:", Array.from(earnedNames));
+
+    // Check which new badges are earned
+    const newBadges: string[] = [];
+
+    for (const badge of BADGE_DEFINITIONS) {
+      if (earnedNames.has(badge.name)) continue;
+      if (!badge.check(stats)) continue;
+
+      // Award the badge
+      const { error } = await supabase.from("badges").insert({
+        child_id: childId,
+        name: badge.name,
+        description: badge.description,
+        icon_url: badge.icon,
+      });
+
+      if (error) {
+        console.error(`Failed to insert badge "${badge.name}":`, error);
+      } else {
+        console.log(`Badge awarded: ${badge.name}`);
+        newBadges.push(badge.name);
+      }
+    }
+
+    return newBadges;
+  } catch (err) {
+    console.error("checkAndAwardBadges unexpected error:", err);
+    return [];
+  }
 }
