@@ -673,6 +673,7 @@ const ChildMode = () => {
           completionsToday: allDone ? 1 : h.completionsToday,
           canComplete: allDone ? false : h.canComplete,
           lastCompletedAt: allDone ? new Date() : h.lastCompletedAt,
+          nextAvailableAt: allDone ? getNextMidnightInTimezone(parentTimezone) : h.nextAvailableAt,
         };
       }));
 
