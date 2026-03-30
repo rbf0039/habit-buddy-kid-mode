@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, Lock, Globe, Moon, Sun, Volume2, VolumeX, Trash2, Bell, Eye } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { isSoundEnabled, setSoundEnabled } from "@/lib/sounds";
