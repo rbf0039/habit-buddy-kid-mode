@@ -101,6 +101,32 @@ const Settings = () => {
     }
   };
 
+  const handleNotificationHourChange = async (value: string) => {
+    const hour = parseInt(value, 10);
+    setNotificationHour(hour);
+    setIsSavingNotification(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ notification_hour: hour })
+      .eq("id", user!.id);
+
+    setIsSavingNotification(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save notification time.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Notification time updated.",
+      });
+    }
+  };
+
   const handleSessionError = (error: any) => {
     // Check for session-related errors
     if (error?.message?.includes("session") || 
