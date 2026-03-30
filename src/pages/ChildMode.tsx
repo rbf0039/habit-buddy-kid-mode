@@ -864,7 +864,7 @@ const ChildMode = () => {
                   const isFullyCompleted = hasSteps ? progress === 100 : isFullyCompletedForPeriod;
 
                   // Use the real-time countdown formatter
-                  const cooldownDisplay = formatCooldownTime(habit.nextAvailableAt);
+                  const cooldownDisplay = formatCooldownTime(habit);
 
                   return (
                     <Card
