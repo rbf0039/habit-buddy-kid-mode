@@ -217,6 +217,11 @@ const ParentDashboard = () => {
         </div>
 
 
+        {/* Expiring Habits Banner */}
+        {!isDemo && user && children.length > 0 && (
+          <HabitExpiryBanner userId={user.id} children={children} />
+        )}
+
         {/* Children List */}
         <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
