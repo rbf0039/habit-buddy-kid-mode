@@ -8,6 +8,7 @@ import { Settings, Users, LogOut, Smartphone, Pencil, Bell, ArrowLeft } from "lu
 import { AddChildDialog } from "@/components/AddChildDialog";
 import { EditChildDialog } from "@/components/EditChildDialog";
 import { PinDialog } from "@/components/PinDialog";
+import { HabitExpiryBanner } from "@/components/HabitExpiryBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
