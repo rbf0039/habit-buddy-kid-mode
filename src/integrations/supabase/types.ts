@@ -346,7 +346,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_user_pin: { Args: never; Returns: boolean }
+      set_user_pin: { Args: { new_pin: string }; Returns: undefined }
+      verify_user_pin: { Args: { entered_pin: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
