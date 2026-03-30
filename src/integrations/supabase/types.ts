@@ -230,6 +230,7 @@ export type Database = {
           email: string
           id: string
           name: string
+          notification_hour: number
           pin: string | null
           timezone: string
         }
@@ -238,6 +239,7 @@ export type Database = {
           email: string
           id: string
           name: string
+          notification_hour?: number
           pin?: string | null
           timezone?: string
         }
@@ -246,6 +248,7 @@ export type Database = {
           email?: string
           id?: string
           name?: string
+          notification_hour?: number
           pin?: string | null
           timezone?: string
         }

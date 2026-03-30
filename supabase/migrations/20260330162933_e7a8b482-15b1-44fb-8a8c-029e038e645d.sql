@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN notification_hour integer NOT NULL DEFAULT 18;
