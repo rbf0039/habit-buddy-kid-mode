@@ -163,16 +163,18 @@ const ChildMode = () => {
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
       
-      // Check if any cooldowns have expired and refresh data
-      const expiredCooldowns = habits.filter(h => 
-        h.nextAvailableAt && 
-        h.nextAvailableAt.getTime() <= Date.now() && 
-        !h.canComplete
-      );
-      
-      if (expiredCooldowns.length > 0) {
-        fetchChildData();
-      }
+      // Check if any cooldowns have expired and update canComplete optimistically
+      setHabits(prevHabits => {
+        let changed = false;
+        const updated = prevHabits.map(h => {
+          if (h.nextAvailableAt && h.nextAvailableAt.getTime() <= Date.now() && !h.canComplete) {
+            changed = true;
+            return { ...h, canComplete: h.completionsToday < h.times_per_period, nextAvailableAt: null };
+          }
+          return h;
+        });
+        return changed ? updated : prevHabits;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
@@ -736,6 +738,7 @@ const ChildMode = () => {
         description: "Failed to redeem reward. Please try again.",
         variant: "destructive",
       });
+      await fetchChildData();
     }
   };
 
