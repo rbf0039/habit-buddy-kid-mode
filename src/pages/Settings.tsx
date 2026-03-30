@@ -38,12 +38,14 @@ const Settings = () => {
   const { toast } = useToast();
 
   const [timezone, setTimezone] = useState("America/New_York");
+  const [notificationHour, setNotificationHour] = useState(18);
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTimezone, setIsSavingTimezone] = useState(false);
+  const [isSavingNotification, setIsSavingNotification] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
 
