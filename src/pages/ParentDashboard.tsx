@@ -220,7 +220,21 @@ const ParentDashboard = () => {
 
         {/* Expiring Habits Banner */}
         {!isDemo && user && children.length > 0 && (
-          <HabitExpiryBanner userId={user.id} children={children} />
+          <HabitExpiryBanner userId={user.id} children={children} forceShow={testBanner} />
+        )}
+        {testBanner && (
+          <div className="mb-4 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                searchParams.delete("testBanner");
+                setSearchParams(searchParams);
+              }}
+            >
+              Exit Preview Mode
+            </Button>
+          </div>
         )}
 
         {/* Children List */}
