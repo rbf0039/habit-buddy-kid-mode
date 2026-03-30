@@ -18,6 +18,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Camera, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Child {
   id: string;
@@ -40,6 +41,7 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -73,7 +75,7 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
 
     const fileExt = file.name.split(".").pop();
     const fileName = `${child.id}-${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const filePath = `${user?.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("child-avatars")
@@ -89,11 +91,11 @@ export const EditChildDialog = ({ open, onOpenChange, child, onChildUpdated }: E
       return;
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signedUrlData } = await supabase.storage
       .from("child-avatars")
-      .getPublicUrl(filePath);
+      .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
 
-    setAvatarUrl(publicUrl);
+    setAvatarUrl(signedUrlData?.signedUrl || null);
     setIsUploading(false);
   };
 
